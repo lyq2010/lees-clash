@@ -9,8 +9,8 @@ import (
 	"github.com/metacubex/mihomo/component/process"
 	"github.com/metacubex/mihomo/log"
 
-	"cfa/native/app"
-	"cfa/native/platform"
+	"lees/native/app"
+	"lees/native/platform"
 
 	"github.com/metacubex/mihomo/component/dialer"
 	"github.com/metacubex/mihomo/constant"

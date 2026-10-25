@@ -7,7 +7,7 @@ import (
 	"errors"
 	"unsafe"
 
-	"cfa/native/app"
+	"lees/native/app"
 
 	"github.com/metacubex/mihomo/log"
 )

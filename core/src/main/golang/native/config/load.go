@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"strings"
 
-	"cfa/native/app"
+	"lees/native/app"
 
 	"github.com/metacubex/mihomo/common/yaml"
 	"github.com/metacubex/mihomo/config"

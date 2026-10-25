@@ -18,10 +18,10 @@ class ClashManager(private val context: Context) : IClashManager,
     private val store = ServiceStore(context)
     private var logReceiver: ReceiveChannel<LogMessage>? = null
 
-    override suspend fun queryDiagnostics(operation: String, payload: String): String = withContext(Dispatchers.IO) {
+    override fun queryDiagnostics(operation: String, payload: String): String {
         require(operation in setOf("connections", "connection", "close", "closeAll", "rules", "traffic", "dns"))
         require(payload.length <= 8192)
-        DiagnosticJson.checked(io.github.leenban.clash.core.bridge.Bridge.nativeDiagnostics(operation, payload))
+        return DiagnosticJson.checked(io.github.leenban.clash.core.bridge.Bridge.nativeDiagnostics(operation, payload))
     }
 
     override fun queryTunnelState(): TunnelState {

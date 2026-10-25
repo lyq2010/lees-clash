@@ -23,7 +23,7 @@ golang {
         }
         all {
             fileName.set("libclash.so")
-            packageName.set("cfa/native")
+            packageName.set("lees/native")
         }
     }
 }

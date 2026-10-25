@@ -21,6 +21,8 @@ buildscript {
     }
 }
 
+val releaseProperties = Properties().apply { rootProject.file("version.properties").inputStream().use(::load) }
+
 subprojects {
     repositories {
         mavenCentral()
@@ -62,9 +64,12 @@ subprojects {
             minSdk = 26
             targetSdk = 35
 
-            versionName = providers.gradleProperty("releaseVersion").getOrElse("0.1.0")
-            versionCode = providers.gradleProperty("releaseCode").getOrElse("1").toInt()
+            versionName = providers.gradleProperty("releaseVersion").getOrElse(releaseProperties.getProperty("versionName"))
+            versionCode = providers.gradleProperty("releaseCode").getOrElse(releaseProperties.getProperty("versionCode")).toInt()
 
+            require(Regex("[0-9]+\\.[0-9]+\\.[0-9]+").matches(versionName!!)) { "Invalid release version" }
+            require(versionName!!.substringAfterLast('.').toInt() in 0..49) { "Patch version must be below 50" }
+            require(versionCode!! > 0) { "versionCode must be positive" }
             resValue("string", "release_name", "v$versionName")
             resValue("integer", "release_code", "$versionCode")
 
@@ -100,7 +105,7 @@ subprojects {
         productFlavors {
             flavorDimensions("feature")
 
-            val removeSuffix = (queryConfigProperty("remove.suffix") as? String)?.toBoolean() == true
+            val removeSuffix = (queryConfigProperty("remove.suffix") as? String)?.toBoolean() != false
 
             create("alpha") {
                 isDefault = true
@@ -112,8 +117,8 @@ subprojects {
 
                 buildConfigField("boolean", "PREMIUM", "Boolean.parseBoolean(\"false\")")
 
-                resValue("string", "launch_name", "@string/launch_name_alpha")
-                resValue("string", "application_name", "@string/application_name_alpha")
+                resValue("string", "launch_name", "Lee’s Clash")
+                resValue("string", "application_name", "Lee’s Clash")
 
                 if (isApp && !removeSuffix) {
                     applicationIdSuffix = ".alpha"
@@ -129,8 +134,8 @@ subprojects {
 
                 buildConfigField("boolean", "PREMIUM", "Boolean.parseBoolean(\"false\")")
 
-                resValue("string", "launch_name", "@string/launch_name_meta")
-                resValue("string", "application_name", "@string/application_name_meta")
+                resValue("string", "launch_name", "Lee’s Clash")
+                resValue("string", "application_name", "Lee’s Clash")
 
                 if (isApp && !removeSuffix) {
                     applicationIdSuffix = ".meta"

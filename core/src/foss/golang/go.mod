@@ -2,7 +2,7 @@ module foss
 
 go 1.20
 
-require cfa v0.0.0
+require lees v0.0.0
 
 require (
 	github.com/RyuaNerin/go-krypto v1.3.0 // indirect
@@ -141,7 +141,7 @@ require (
 	google.golang.org/protobuf v1.34.2 // indirect
 )
 
-replace cfa => ../../main/golang
+replace lees => ../../main/golang
 
 replace github.com/metacubex/mihomo => ./clash
 

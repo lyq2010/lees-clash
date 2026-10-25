@@ -37,46 +37,23 @@ class MainApplication : Application() {
 
     private fun extractGeoFiles() {
         clashDir.mkdirs()
-
-        val updateDate = packageManager.getPackageInfo(packageName, 0).lastUpdateTime
-        val geoipFile = File(clashDir, "geoip.metadb")
-        if (geoipFile.exists() && geoipFile.lastModified() < updateDate) {
-            geoipFile.delete()
-        }
-        if (!geoipFile.exists()) {
-            FileOutputStream(geoipFile).use {
-                assets.open("geoip.metadb").copyTo(it)
+        val preferences = getSharedPreferences("bundled_assets", MODE_PRIVATE)
+        val manifest = org.json.JSONObject(assets.open("manifest.json").bufferedReader().use { it.readText() }).getJSONArray("assets")
+        for (index in 0 until manifest.length()) {
+            val entry = manifest.getJSONObject(index)
+            val name = entry.getString("name")
+            val bundledHash = entry.getString("sha256")
+            val previousHash = preferences.getString(name, null)
+            val target = File(clashDir, name)
+            if (target.exists() && previousHash == bundledHash) continue
+            val unchanged = target.exists() && previousHash != null && target.inputStream().use { input ->
+                val digest = java.security.MessageDigest.getInstance("SHA-256")
+                val buffer = ByteArray(32768)
+                while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) }
+                digest.digest().joinToString("") { "%02x".format(it) } == previousHash
             }
-        }
-
-        val geositeFile = File(clashDir, "geosite.dat")
-        if (geositeFile.exists() && geositeFile.lastModified() < updateDate) {
-            geositeFile.delete()
-        }
-        if (!geositeFile.exists()) {
-            FileOutputStream(geositeFile).use {
-                assets.open("geosite.dat").copyTo(it)
-            }
-        }
-
-        val asnFile = File(clashDir, "ASN.mmdb")
-        if (asnFile.exists() && asnFile.lastModified() < updateDate) {
-            asnFile.delete()
-        }
-        if (!asnFile.exists()) {
-            FileOutputStream(asnFile).use {
-                assets.open("ASN.mmdb").copyTo(it)
-            }
-        }
-
-        val bundleMRSFile = File(clashDir, "BundleMRS.7z")
-        if (bundleMRSFile.exists() && bundleMRSFile.lastModified() < updateDate) {
-            bundleMRSFile.delete()
-        }
-        if (!bundleMRSFile.exists()) {
-            FileOutputStream(bundleMRSFile).use {
-                assets.open("BundleMRS.7z").copyTo(it)
-            }
+            if (!target.exists() || unchanged) assets.open(name).use { input -> target.outputStream().use { input.copyTo(it) } }
+            preferences.edit().putString(name, bundledHash).apply()
         }
     }
 

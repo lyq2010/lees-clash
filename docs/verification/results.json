@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-26",
+  "applicationId": "io.github.leenban.clash",
+  "versionName": "0.1.0.debug",
+  "device": {
+    "name": "MuMu 开发测试",
+    "instance": 3,
+    "serial": "127.0.0.1:16480",
+    "api": 35,
+    "abi": "x86_64",
+    "resolution": "1080x1920"
+  },
+  "apk": {
+    "path": "app/build/intermediates/apk/alpha/debug/lees-clash-0.1.0-alpha-x86_64-debug.apk",
+    "sha256": "4cfe36301494ab217ea26056f783debda5c490dd2c218282dadaea69e4f7e691",
+    "testOnly": true
+  },
+  "checks": [
+    {
+      "name": "design Kotlin compilation",
+      "status": "passed"
+    },
+    {
+      "name": "app Debug APK + AndroidTest APK build",
+      "status": "passed",
+      "log": "I:/DevCache/lees-clash-final-build.log"
+    },
+    {
+      "name": "ClientFormattingTest",
+      "status": "passed",
+      "tests": 1
+    },
+    {
+      "name": "Go diagnostics",
+      "status": "passed",
+      "tests": 4,
+      "log": "I:/DevCache/lees-clash-go-tests.log"
+    },
+    {
+      "name": "NativeIntegrationTest.prepareLocalProfile",
+      "status": "passed",
+      "tests": 1
+    },
+    {
+      "name": "NavigationSmokeTest",
+      "status": "passed",
+      "tests": 1,
+      "screenshots": 6
+    },
+    {
+      "name": "NativeIntegrationTest.runningCoreRoutesAndDiagnostics",
+      "status": "passed",
+      "tests": 1,
+      "coverage": [
+        "VPN start",
+        "selector changes",
+        "effective rules",
+        "DNS answer and TTL",
+        "loopback SOCKS forwarding",
+        "live connection metadata",
+        "close connection",
+        "64-bit traffic counters",
+        "service stop"
+      ]
+    },
+    {
+      "name": "Release / R8 / signed APK runtime",
+      "status": "not_run"
+    },
+    {
+      "name": "ARM64 / ARMv7 / x86 runtime",
+      "status": "not_run"
+    },
+    {
+      "name": "Android 8 / tablet / large fonts / cellular switching",
+      "status": "not_run"
+    }
+  ],
+  "cleanup": {
+    "vpnService": "stopped",
+    "loopbackFixture": "stopped",
+    "adbReversePortsRemoved": [
+      18080,
+      18081,
+      13053
+    ],
+    "testProfile": "retained",
+    "sourceFilesDeleted": false
+  },
+  "knownIssues": [
+    "Active connection pagination can reset to the first page during the one-second refresh.",
+    "All legacy files remain pending an approved precise cleanup inventory.",
+    "Advanced configuration, file operations, QR and external provider flows are not fully covered by end-to-end tests."
+  ]
+}

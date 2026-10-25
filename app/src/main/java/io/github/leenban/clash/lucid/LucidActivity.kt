@@ -1,0 +1,264 @@
+package io.github.leenban.clash.lucid
+
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.provider.OpenableColumns
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import io.github.g00fy2.quickie.QRResult
+import io.github.g00fy2.quickie.ScanQRCode
+import io.github.leenban.clash.common.constants.Intents
+import io.github.leenban.clash.core.model.*
+import io.github.leenban.clash.remote.Remote
+import io.github.leenban.clash.util.clashDir
+import io.github.leenban.clash.util.startClashService
+import io.github.leenban.clash.util.stopClashService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+open class LucidActivity : ComponentActivity() {
+    private val model: ClientViewModel by viewModels()
+    private var importTarget: String? = null
+    private var geoTarget: String? = null
+    private var exportTarget: String? = null
+
+    protected open fun initialRoute(): String = "home"
+
+    private val vpn =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) beginStart() else model.error("未允许 VPN 连接，服务尚未启动")
+        }
+    private val notifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { beginStart() }
+    private val filePicker =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) importDocument(uri)
+        }
+    private val exporter =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/yaml")) { uri
+            ->
+            val id = exportTarget
+            if (uri != null && id != null)
+                model.task { model.repository.files.copyDocument(uri, id) }
+        }
+    private val qr =
+        registerForActivityResult(ScanQRCode()) { result ->
+            when (result) {
+                is QRResult.QRSuccess -> {
+                    val value = result.content.rawValue
+                    if (value != null) showRoute("import/${Uri.encode(importUrl(value))}")
+                }
+                is QRResult.QRError -> model.error("二维码识别失败")
+                else -> Unit
+            }
+        }
+    private val provider =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    if (result.data!!.flags and Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION != 0)
+                        runCatching {
+                            contentResolver.takePersistableUriPermission(
+                                uri,
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                            )
+                        }
+                    model.task {
+                        model.repository.importUrl(
+                            result.data?.getStringExtra(Intents.EXTRA_NAME) ?: "外部配置",
+                            uri.toString(),
+                            null,
+                        )
+                        model.changed()
+                    }
+                }
+            }
+        }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        @Suppress("DEPRECATION")
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        @Suppress("DEPRECATION")
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
+            resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK !=
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        render(initialRoute())
+        setupShortcuts()
+    }
+
+    private fun render(route: String) {
+        setContent {
+            ClientApp(
+                model,
+                route,
+                ::toggle,
+                { folder ->
+                    importTarget = folder
+                    geoTarget = null
+                    filePicker.launch(arrayOf("*/*"))
+                },
+                { qr.launch(null) },
+                ::externalProvider,
+                { id, name ->
+                    exportTarget = id
+                    exporter.launch(name)
+                },
+                { name ->
+                    geoTarget = name
+                    filePicker.launch(arrayOf("*/*"))
+                },
+                ::finish,
+            )
+        }
+    }
+
+    private fun showRoute(route: String) {
+        render(route)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Remote.broadcasts.addObserver(model)
+    }
+
+    override fun onStop() {
+        Remote.broadcasts.removeObserver(model)
+        super.onStop()
+    }
+
+    private fun toggle() {
+        if (model.state.value.running) {
+            stopClashService()
+            return
+        }
+        if (model.state.value.active?.imported != true) {
+            showRoute("profiles")
+            model.error("请先导入并选择一份有效配置")
+            return
+        }
+        model.starting()
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+        )
+            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        else beginStart()
+    }
+
+    private fun beginStart() {
+        try {
+            val request = startClashService()
+            if (request != null) vpn.launch(request)
+        } catch (e: Exception) {
+            model.error(e.message ?: "无法启动 VPN")
+        }
+    }
+
+    private fun importUrl(value: String): String =
+        if (value.startsWith("clash://") || value.startsWith("clashmeta://"))
+            Uri.parse(value).getQueryParameter("url") ?: value
+        else value
+
+    private fun importDocument(uri: Uri) {
+        model.task {
+            val geo = geoTarget
+            val folder = importTarget
+            when {
+                geo != null ->
+                    withContext(Dispatchers.IO) {
+                        contentResolver.openInputStream(uri)!!.use { input ->
+                            clashDir.resolve(geo).outputStream().use { input.copyTo(it) }
+                        }
+                    }
+                folder != null -> {
+                    val name = displayName(uri)
+                    require(name.matches(Regex("[^/\\\\]+"))) { "文件名无效" }
+                    model.repository.files.importDocument(folder, uri, name)
+                    val uuid = java.util.UUID.fromString(folder.substringBefore('/'))
+                    io.github.leenban.clash.util.withProfile {
+                        try {
+                            commit(uuid)
+                        } finally {
+                            release(uuid)
+                        }
+                    }
+                }
+                else -> model.repository.importFile(displayName(uri).substringBeforeLast('.'), uri)
+            }
+            geoTarget = null
+            importTarget = null
+            model.changed()
+        }
+    }
+
+    private fun displayName(uri: Uri): String =
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+            if (it.moveToFirst()) it.getString(0) else null
+        } ?: "config.yaml"
+
+    private fun externalProvider() {
+        val query = Intent(Intents.ACTION_PROVIDE_URL)
+        val providers =
+            packageManager.queryIntentActivities(query, 0).map {
+                query
+                    .cloneFilter()
+                    .setComponent(
+                        android.content.ComponentName(
+                            it.activityInfo.packageName,
+                            it.activityInfo.name,
+                        )
+                    )
+            }
+        if (providers.isEmpty()) {
+            model.error("未发现提供配置的应用，可从文件或链接导入")
+            return
+        }
+        val chooser =
+            Intent.createChooser(providers.first(), "选择配置提供器")
+                .putExtra(Intent.EXTRA_INITIAL_INTENTS, providers.drop(1).toTypedArray())
+        provider.launch(chooser)
+    }
+
+    private fun setupShortcuts() {
+        if (model.repository.ui.hideAppIcon) return
+        val shortcuts =
+            listOf(
+                    Intents.ACTION_TOGGLE_CLASH to "切换服务",
+                    Intents.ACTION_START_CLASH to "启动服务",
+                    Intents.ACTION_STOP_CLASH to "停止服务",
+                )
+                .mapIndexed { index, (action, label) ->
+                    androidx.core.content.pm.ShortcutInfoCompat.Builder(this, "service_$index")
+                        .setShortLabel(label)
+                        .setRank(index)
+                        .setIcon(
+                            androidx.core.graphics.drawable.IconCompat.createWithResource(
+                                this,
+                                io.github.leenban.clash.R.drawable.ic_toggle_all,
+                            )
+                        )
+                        .setIntent(
+                            Intent(action)
+                                .setClass(
+                                    this,
+                                    io.github.leenban.clash.ExternalControlActivity::class.java,
+                                )
+                        )
+                        .build()
+                }
+        androidx.core.content.pm.ShortcutManagerCompat.setDynamicShortcuts(this, shortcuts)
+    }
+}

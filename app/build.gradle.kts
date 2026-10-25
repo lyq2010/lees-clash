@@ -1,4 +1,5 @@
 import java.net.URL
+import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 
@@ -10,6 +11,7 @@ plugins {
 }
 
 android { buildFeatures { compose = true } }
+android.defaultConfig.testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.01.01"))
@@ -22,6 +24,9 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.01.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     testImplementation("junit:junit:4.13.2")
     compileOnly(project(":hideapi"))
@@ -32,6 +37,7 @@ dependencies {
     implementation(project(":common"))
 
     implementation(libs.kotlin.coroutine)
+    implementation(libs.kotlin.serialization.json)
     implementation(libs.androidx.core)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.fragment)
@@ -47,41 +53,26 @@ tasks.getByName("clean", type = Delete::class) {
     delete(file("release"))
 }
 
-val geoFilesDownloadDir = "src/main/assets"
+val prepareNotices by tasks.registering(Copy::class) {
+    from(rootProject.file("LICENSE"), rootProject.file("NOTICE"))
+    into(layout.buildDirectory.dir("generated/notices"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/notices"))
+tasks.named("preBuild").configure { dependsOn(prepareNotices) }
 
-task("downloadGeoFiles") {
-
-    val geoFilesUrls = mapOf(
-        "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb" to "geoip.metadb",
-        "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat" to "geosite.dat",
-        // "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/country.mmdb" to "country.mmdb",
-        "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/GeoLite2-ASN.mmdb" to "ASN.mmdb",
-        "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/BundleMRS.7z" to "BundleMRS.7z",
-    )
-
+// Resources are committed snapshots with publisher SHA-256 values; builds never pull mutable latest assets.
+android.sourceSets.getByName("main").assets.srcDir(rootProject.file("resources/geodata"))
+val verifyGeoFiles by tasks.registering {
+    inputs.dir(rootProject.file("resources/geodata"))
     doLast {
-        geoFilesUrls.forEach { (downloadUrl, outputFileName) ->
-            val url = URL(downloadUrl)
-            val outputPath = file("$geoFilesDownloadDir/$outputFileName")
-            outputPath.parentFile.mkdirs()
-            url.openStream().use { input ->
-                Files.copy(input, outputPath.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                println("$outputFileName downloaded to $outputPath")
-            }
+        val manifest = groovy.json.JsonSlurper().parse(rootProject.file("resources/geodata/manifest.json")) as Map<*, *>
+        val assets = manifest["assets"] as List<*>
+        assets.forEach { item ->
+            val entry = item as Map<*, *>
+            val asset = rootProject.file("resources/geodata/${entry["name"]}")
+            val actual = MessageDigest.getInstance("SHA-256").digest(asset.readBytes()).joinToString("") { "%02x".format(it) }
+            check(actual == entry["sha256"]) { "Geo asset checksum mismatch: ${asset.name}" }
         }
     }
 }
-
-afterEvaluate {
-    val downloadGeoFilesTask = tasks["downloadGeoFiles"]
-
-    tasks.forEach {
-        if (it.name.startsWith("assemble")) {
-            it.dependsOn(downloadGeoFilesTask)
-        }
-    }
-}
-
-tasks.getByName("clean", type = Delete::class) {
-    delete(file(geoFilesDownloadDir))
-}
+tasks.named("preBuild").configure { dependsOn(verifyGeoFiles) }

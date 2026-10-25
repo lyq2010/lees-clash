@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"unsafe"
 
-	"cfa/native/config"
+	"lees/native/config"
 )
 
 type remoteValidCallback struct {

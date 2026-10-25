@@ -11,8 +11,8 @@ import (
 
 	"golang.org/x/sync/semaphore"
 
-	"cfa/native/app"
-	"cfa/native/tun"
+	"lees/native/app"
+	"lees/native/tun"
 )
 
 var rTunLock sync.Mutex

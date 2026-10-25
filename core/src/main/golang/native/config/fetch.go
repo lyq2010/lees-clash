@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"cfa/native/app"
+	"lees/native/app"
 
 	"github.com/metacubex/mihomo/adapter/provider"
 	clashHttp "github.com/metacubex/mihomo/component/http"

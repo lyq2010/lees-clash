@@ -1,0 +1,323 @@
+package io.github.leenban.clash.lucid
+
+import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import io.github.leenban.clash.design.lucid.*
+import io.github.leenban.clash.service.model.Profile
+
+@Composable
+fun ProfilesScreen(
+    state: ClientState,
+    vm: ClientViewModel,
+    navigate: (String) -> Unit,
+    back: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        LucidHeader("配置", back, "导入") { navigate("import") }
+        LazyColumn {
+            item {
+                LucidSection("配置文件") {
+                    state.profiles.forEach { profile ->
+                        LucidRow(
+                            profile.name,
+                            subtitle =
+                                when (profile.type) {
+                                    Profile.Type.Url -> "订阅配置"
+                                    Profile.Type.File -> "本地配置"
+                                    else -> "外部配置"
+                                },
+                            value = if (profile.active) "使用中" else "",
+                            selected = profile.active,
+                            onDetail = { navigate("profile/${profile.uuid}") },
+                            onClick = {
+                                vm.task {
+                                    vm.repository.select(profile)
+                                    vm.changed()
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+            if (state.profiles.isEmpty())
+                item { LucidEmpty("尚未添加配置", "从链接、文件或二维码导入 Clash YAML 配置。") }
+            item {
+                LucidSection("导入") {
+                    LucidRow("添加配置", symbol = LucidSymbol.Add, onClick = { navigate("import") })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ImportScreen(
+    vm: ClientViewModel,
+    back: () -> Unit,
+    importFile: () -> Unit,
+    scan: () -> Unit,
+    external: () -> Unit,
+    initialUrl: String = "",
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
+    var secret by rememberSaveable { mutableStateOf("") }
+    Column(Modifier.fillMaxSize()) {
+        LucidHeader("导入配置", back, "完成") {
+            vm.task(done = back) {
+                vm.repository.importUrl(name.ifBlank { "订阅配置" }, url, secret)
+                vm.changed()
+            }
+        }
+        LazyColumn {
+            item {
+                LucidSection("从 URL 下载") {
+                    LucidField("名称", name, { name = it }, "订阅配置")
+                    LucidField(
+                        "链接",
+                        url,
+                        { url = it },
+                        "https://example.com/config.yaml",
+                        keyboard = KeyboardType.Uri,
+                    )
+                    LucidField("age 私钥（可选）", secret, { secret = it }, secret = true)
+                }
+            }
+            item {
+                LucidSection("其他方式") {
+                    LucidRow("从文件导入", symbol = LucidSymbol.Document, onClick = importFile)
+                    LucidRow("扫描二维码", symbol = LucidSymbol.Search, onClick = scan)
+                    LucidRow("来自其他应用", symbol = LucidSymbol.Folder, onClick = external)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileScreen(
+    state: ClientState,
+    vm: ClientViewModel,
+    navigate: (String) -> Unit,
+    back: () -> Unit,
+    export: (String, String) -> Unit,
+    confirm: (String, () -> Unit) -> Unit,
+) {
+    val profile = state.editingProfile
+    if (profile == null) {
+        Column {
+            LucidHeader("配置", back)
+            LucidEmpty("正在读取配置")
+        }
+        return
+    }
+    var name by rememberSaveable(profile.uuid.toString()) { mutableStateOf(profile.name) }
+    var source by rememberSaveable(profile.uuid.toString()) { mutableStateOf(profile.source) }
+    var interval by
+        rememberSaveable(profile.uuid.toString()) {
+            mutableStateOf((profile.interval / 60000).toString())
+        }
+    var secret by
+        rememberSaveable(profile.uuid.toString()) { mutableStateOf(profile.ageSecretKey.orEmpty()) }
+    var contents by rememberSaveable(profile.uuid.toString()) { mutableStateOf<String?>(null) }
+    var originalContents by
+        rememberSaveable(profile.uuid.toString()) { mutableStateOf<String?>(null) }
+    LaunchedEffect(profile.uuid) {
+        vm.task {
+            val loaded = vm.repository.readDocument("${profile.uuid}/config.yaml")
+            originalContents = loaded
+            if (contents == null) contents = loaded
+        }
+    }
+    val dirty =
+        name != profile.name ||
+            source != profile.source ||
+            secret != profile.ageSecretKey.orEmpty() ||
+            interval != (profile.interval / 60000).toString() ||
+            contents != originalContents
+    val leave: () -> Unit = {
+        if (dirty)
+            confirm("放弃尚未保存的配置修改？") {
+                vm.task(done = back) {
+                    io.github.leenban.clash.util.withProfile { release(profile.uuid) }
+                }
+            }
+        else back()
+    }
+    BackHandler(onBack = leave)
+    Column(Modifier.fillMaxSize()) {
+        LucidHeader("编辑配置", leave, "完成") {
+            vm.task(done = back) {
+                vm.repository.saveProfile(
+                    profile,
+                    name,
+                    source,
+                    (interval.toLongOrNull() ?: error("更新间隔应为整数分钟")) * 60000,
+                    secret,
+                    if (profile.type == Profile.Type.File && contents != originalContents) contents
+                    else null,
+                )
+                vm.changed()
+            }
+        }
+        LazyColumn(Modifier.weight(1f)) {
+            item {
+                LucidSection("配置属性") {
+                    LucidField("名称", name, { name = it })
+                    if (profile.type != Profile.Type.File)
+                        LucidField("来源链接", source, { source = it }, keyboard = KeyboardType.Uri)
+                    LucidField(
+                        "自动更新间隔（分钟，0 为关闭）",
+                        interval,
+                        { interval = it },
+                        keyboard = KeyboardType.Number,
+                    )
+                    LucidField("age 私钥（可选）", secret, { secret = it }, secret = true)
+                }
+            }
+            if (profile.type == Profile.Type.File)
+                item {
+                    LucidSection("YAML 内容", footer = "保存时由内核验证；验证失败不会替换已导入的有效配置。") {
+                        LucidField("", contents.orEmpty(), { contents = it }, multiline = true)
+                    }
+                }
+            item {
+                LucidSection("操作") {
+                    LucidRow("立即更新", onClick = { vm.task { vm.repository.reload(profile) } })
+                    LucidRow(
+                        "克隆为本地配置",
+                        onClick = {
+                            vm.task(done = back) {
+                                vm.repository.cloneProfile(profile)
+                                vm.changed()
+                            }
+                        },
+                    )
+                    LucidRow(
+                        "配置与资源文件",
+                        onClick = { navigate("files/${Uri.encode(profile.uuid.toString())}") },
+                    )
+                    LucidRow(
+                        "导出 YAML",
+                        onClick = { export("${profile.uuid}/config.yaml", "${profile.name}.yaml") },
+                    )
+                    LucidRow(
+                        "删除配置",
+                        destructive = true,
+                        onClick = {
+                            confirm("删除配置“${profile.name}”？此操作无法撤销。") {
+                                vm.task(done = back) {
+                                    vm.repository.delete(profile)
+                                    vm.changed()
+                                }
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FilesScreen(
+    id: String,
+    state: ClientState,
+    vm: ClientViewModel,
+    navigate: (String) -> Unit,
+    back: () -> Unit,
+    importFile: (String) -> Unit,
+    export: (String, String) -> Unit,
+    confirm: (String, () -> Unit) -> Unit,
+) {
+    var editing by rememberSaveable { mutableStateOf<String?>(null) }
+    var text by rememberSaveable { mutableStateOf("") }
+    Column(Modifier.fillMaxSize()) {
+        LucidHeader(
+            if (editing == null) "配置与资源文件" else "编辑文件",
+            back,
+            if (editing == null) "导入" else "保存",
+        ) {
+            if (editing == null) importFile(id)
+            else
+                vm.task {
+                    vm.repository.writeDocument(editing!!, text)
+                    val uuid = java.util.UUID.fromString(id.substringBefore('/'))
+                    io.github.leenban.clash.util.withProfile {
+                        try {
+                            commit(uuid)
+                        } finally {
+                            release(uuid)
+                        }
+                    }
+                    editing = null
+                    vm.changed()
+                }
+        }
+        LazyColumn {
+            if (editing != null)
+                item { LucidSection { LucidField("", text, { text = it }, multiline = true) } }
+            else
+                item {
+                    LucidSection("文件") {
+                        state.files.forEach { file ->
+                            val documentId =
+                                if (file.id.startsWith(id.substringBefore('/'))) file.id
+                                else "$id/${file.id}"
+                            LucidRow(
+                                file.name,
+                                subtitle = if (file.isDirectory) "文件夹" else formatBytes(file.size),
+                                onClick = {
+                                    if (file.isDirectory)
+                                        navigate("files/${Uri.encode(documentId)}")
+                                    else if (documentId.endsWith("/config.yaml"))
+                                        navigate("profile/${id.substringBefore('/')}")
+                                    else
+                                        vm.task {
+                                            val loaded = vm.repository.readDocument(documentId)
+                                            text = loaded
+                                            editing = documentId
+                                        }
+                                },
+                            )
+                            if (!file.isDirectory)
+                                LucidRow(
+                                    "导出 ${file.name}",
+                                    onClick = { export(documentId, file.name) },
+                                )
+                            if (documentId.contains("/providers/"))
+                                LucidRow(
+                                    "删除 ${file.name}",
+                                    destructive = true,
+                                    onClick = {
+                                        confirm("删除资源文件“${file.name}”？") {
+                                            vm.task {
+                                                vm.repository.files.deleteDocument(documentId)
+                                                val uuid =
+                                                    java.util.UUID.fromString(
+                                                        id.substringBefore('/')
+                                                    )
+                                                io.github.leenban.clash.util.withProfile {
+                                                    try {
+                                                        commit(uuid)
+                                                    } finally {
+                                                        release(uuid)
+                                                    }
+                                                }
+                                                vm.changed()
+                                            }
+                                        }
+                                    },
+                                )
+                        }
+                    }
+                }
+        }
+    }
+}

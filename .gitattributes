@@ -2,3 +2,8 @@
 
 *.bat text eol=crlf
 *.jar binary
+
+resources/geodata/*.dat binary
+resources/geodata/*.metadb binary
+resources/geodata/*.mmdb binary
+resources/geodata/*.7z binary

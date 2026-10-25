@@ -8,7 +8,7 @@ import (
 
 	"github.com/dlclark/regexp2"
 
-	"cfa/native/common"
+	"lees/native/common"
 
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/config"

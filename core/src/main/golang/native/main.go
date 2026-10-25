@@ -11,9 +11,9 @@ import (
 	"runtime"
 	"runtime/debug"
 
-	"cfa/native/config"
-	"cfa/native/delegate"
-	"cfa/native/tunnel"
+	"lees/native/config"
+	"lees/native/delegate"
+	"lees/native/tunnel"
 
 	"github.com/metacubex/mihomo/log"
 )

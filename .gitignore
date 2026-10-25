@@ -1,5 +1,7 @@
 .gradle
 .kotlin/
+/.secrets/
+*.p12
 **/.externalNativeBuild/
 **/.cxx/
 **/local.properties

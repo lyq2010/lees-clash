@@ -1,0 +1,31 @@
+{
+  "repository": "MetaCubeX/meta-rules-dat",
+  "releaseId": 423062532,
+  "publishedAt": "2026-10-25T00:28:14Z",
+  "assets": [
+    {
+      "name": "BundleMRS.7z",
+      "assetId": 673683193,
+      "sha256": "c1e063721b30d2f21db9c8e4720b6fcdc877099650d02918c929717432e4153d",
+      "source": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/BundleMRS.7z"
+    },
+    {
+      "name": "geoip.metadb",
+      "assetId": 673683307,
+      "sha256": "35ca922ee37f1afe932b5b85d9a211378634c2d1edd9dca220ff0515fedef1db",
+      "source": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.metadb"
+    },
+    {
+      "name": "ASN.mmdb",
+      "assetId": 673683194,
+      "sha256": "4f480469576dba3e84b1f5c17313059982b70a62b8d35fb1ed225e39109b0531",
+      "source": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/GeoLite2-ASN.mmdb"
+    },
+    {
+      "name": "geosite.dat",
+      "assetId": 673683357,
+      "sha256": "bd1804e37ebc09bfe793bd6822d2d49c8d5a668e34fd47112821540dd68645a3",
+      "source": "https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat"
+    }
+  ]
+}
