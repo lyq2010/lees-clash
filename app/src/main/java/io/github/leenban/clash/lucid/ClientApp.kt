@@ -2,6 +2,8 @@ package io.github.leenban.clash.lucid
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -46,7 +48,6 @@ fun ClientApp(
     var stack by rememberSaveable { mutableStateOf(listOf(initialRoute)) }
     val route = stack.last()
     val kind = route.substringBefore('/')
-    val argument = Uri.decode(route.substringAfter('/', ""))
     var themeRevision by remember { mutableIntStateOf(0) }
     var confirmation by remember { mutableStateOf<Pair<String, () -> Unit>?>(null) }
     val confirm: (String, () -> Unit) -> Unit = { message, action ->
@@ -58,10 +59,10 @@ fun ClientApp(
     }
     val owner = LocalLifecycleOwner.current
     val holder = rememberSaveableStateHolder()
-    LaunchedEffect(route) { vm.navigate(route) }
-    LaunchedEffect(owner) {
+    LaunchedEffect(owner, route) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
+                vm.navigate(route)
                 while (true) {
                     vm.refresh()
                     delay(1000)
@@ -72,8 +73,9 @@ fun ClientApp(
         }
     }
     BackHandler(stack.size > 1 || initialRoute != "home", onBack = back)
+    val theme = remember(themeRevision) { vm.repository.ui.darkMode }
     val dark =
-        when (vm.repository.ui.darkMode) {
+        when (theme) {
             DarkMode.Auto -> androidx.compose.foundation.isSystemInDarkTheme()
             DarkMode.ForceLight -> false
             else -> true
@@ -88,151 +90,140 @@ fun ClientApp(
                 }
         }
     }
-    key(themeRevision) {
-        LucidTheme(dark) {
-            val c = LocalLucidColors.current
-            Column(
-                Modifier.fillMaxSize()
-                    .background(c.background)
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-            ) {
-                if (state.error != null)
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .background(c.red.copy(alpha = .12f))
-                            .clickable { vm.clearError() }
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            state.error.orEmpty(),
-                            Modifier.weight(1f),
-                            color = c.red,
-                            fontSize = 14.sp,
-                        )
-                        Text("关闭", Modifier.padding(start = 10.dp), color = c.red, fontSize = 13.sp)
-                    }
-                BoxWithConstraints(Modifier.weight(1f)) {
-                    val wide = maxWidth >= 600.dp
-                    Row(Modifier.fillMaxSize()) {
-                        if (wide)
-                            Column(Modifier.width(290.dp).fillMaxHeight()) {
-                                Box(Modifier.weight(1f)) {
-                                    HomeScreen(state, navigate, toggle, vm::setMode)
-                                }
-                                TabBar(if (kind == "more") "more" else "home") {
-                                    stack = listOf(it)
-                                }
+    LucidTheme(dark) {
+        val c = LocalLucidColors.current
+        Column(
+            Modifier.fillMaxSize()
+                .background(c.background)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+        ) {
+            if (state.error != null)
+                Row(
+                    Modifier.fillMaxWidth()
+                        .background(c.red.copy(alpha = .12f))
+                        .clickable { vm.clearError() }
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        state.error.orEmpty(),
+                        Modifier.weight(1f),
+                        color = c.red,
+                        fontSize = 14.sp,
+                    )
+                    Text("关闭", Modifier.padding(start = 10.dp), color = c.red, fontSize = 13.sp)
+                }
+            BoxWithConstraints(Modifier.weight(1f)) {
+                val wide = maxWidth >= 600.dp
+                Row(Modifier.fillMaxSize()) {
+                    if (wide)
+                        Column(Modifier.width(290.dp).fillMaxHeight()) {
+                            Box(Modifier.weight(1f)) {
+                                HomeScreen(state, navigate, toggle, vm::setMode)
                             }
-                        Box(Modifier.weight(1f)) {
-                            holder.SaveableStateProvider(route) {
-                                when (kind) {
-                                    "home" ->
-                                        if (wide) ToolsScreen(navigate)
-                                        else HomeScreen(state, navigate, toggle, vm::setMode)
-                                    "tools" -> ToolsScreen(navigate)
-                                    "more" -> MoreScreen(navigate)
-                                    "profiles" -> ProfilesScreen(state, vm, navigate, back)
-                                    "import" ->
-                                        ImportScreen(
-                                            vm,
-                                            back,
-                                            { importFile(null) },
-                                            scan,
-                                            external,
-                                            argument,
+                            TabBar(if (kind == "more") "more" else "home") { stack = listOf(it) }
+                        }
+                    LucidPageStack(stack, Modifier.weight(1f).fillMaxHeight()) { visibleRoute ->
+                        val visibleKind = visibleRoute.substringBefore('/')
+                        val argument = Uri.decode(visibleRoute.substringAfter('/', ""))
+                        holder.SaveableStateProvider(visibleRoute) {
+                            when (visibleKind) {
+                                "home" ->
+                                    if (wide) ToolsScreen(navigate)
+                                    else HomeScreen(state, navigate, toggle, vm::setMode)
+                                "tools" -> ToolsScreen(navigate)
+                                "more" -> MoreScreen(navigate)
+                                "profiles" -> ProfilesScreen(state, vm, navigate, back)
+                                "import" ->
+                                    ImportScreen(
+                                        vm,
+                                        back,
+                                        { importFile(null) },
+                                        scan,
+                                        external,
+                                        argument,
+                                    )
+                                "profile" ->
+                                    ProfileScreen(state, vm, navigate, back, export, confirm)
+                                "files" ->
+                                    FilesScreen(
+                                        argument,
+                                        state,
+                                        vm,
+                                        navigate,
+                                        back,
+                                        { importFile(it) },
+                                        export,
+                                        confirm,
+                                    )
+                                "groups" -> GroupsScreen(state, navigate, back)
+                                "nodes" -> NodesScreen(argument, state, vm, back)
+                                "providers" -> ProvidersScreen(state, vm, back)
+                                "connections" ->
+                                    ConnectionsScreen(state, vm, navigate, back, confirm)
+                                "connection" -> ConnectionScreen(state, vm, back, confirm)
+                                "rules" -> RulesScreen(state, vm, back)
+                                "dns" -> DnsScreen(state, vm, back)
+                                "stats" -> StatsScreen(state, back)
+                                "logs" -> LogsScreen(state, back)
+                                "network" -> NetworkScreen(state, vm, navigate, back)
+                                "apps" -> AppsScreen(state, vm, back)
+                                "settings" ->
+                                    SettingsScreen(vm, state, back, { themeRevision++ }, confirm)
+                                "override",
+                                "dns-settings" ->
+                                    OverrideScreen(
+                                        state,
+                                        vm,
+                                        visibleKind == "dns-settings",
+                                        back,
+                                        confirm,
+                                    )
+                                "about" -> AboutScreen(state, back) { navigate("license/$it") }
+                                "license" -> AssetTextScreen(argument, vm, back)
+                                "help" -> HelpScreen(back)
+                                "geodata" -> GeoDataScreen(back, importGeo)
+                                "keys" -> KeyScreen(vm, back)
+                                "broken",
+                                "crashed" ->
+                                    Column {
+                                        LucidHeader("应用状态", back)
+                                        LucidEmpty(
+                                            if (visibleKind == "broken") "安装包不完整" else "后台服务意外退出",
+                                            "请重新打开应用，或重新安装完整 APK。",
                                         )
-                                    "profile" ->
-                                        ProfileScreen(state, vm, navigate, back, export, confirm)
-                                    "files" ->
-                                        FilesScreen(
-                                            argument,
-                                            state,
-                                            vm,
-                                            navigate,
-                                            back,
-                                            { importFile(it) },
-                                            export,
-                                            confirm,
-                                        )
-                                    "groups" -> GroupsScreen(state, navigate, back)
-                                    "nodes" -> NodesScreen(argument, state, vm, back)
-                                    "providers" -> ProvidersScreen(state, vm, back)
-                                    "connections" ->
-                                        ConnectionsScreen(state, vm, navigate, back, confirm)
-                                    "connection" -> ConnectionScreen(state, vm, back, confirm)
-                                    "rules" -> RulesScreen(state, vm, back)
-                                    "dns" -> DnsScreen(state, vm, back)
-                                    "stats" -> StatsScreen(state, back)
-                                    "logs" -> LogsScreen(state, back)
-                                    "network" -> NetworkScreen(state, vm, navigate, back)
-                                    "apps" -> AppsScreen(state, vm, back)
-                                    "settings" ->
-                                        SettingsScreen(
-                                            vm,
-                                            state,
-                                            back,
-                                            { themeRevision++ },
-                                            confirm,
-                                        )
-                                    "override",
-                                    "dns-settings" ->
-                                        OverrideScreen(
-                                            state,
-                                            vm,
-                                            kind == "dns-settings",
-                                            back,
-                                            confirm,
-                                        )
-                                    "about" -> AboutScreen(state, back) { navigate("license/$it") }
-                                    "license" -> AssetTextScreen(argument, vm, back)
-                                    "help" -> HelpScreen(back)
-                                    "geodata" -> GeoDataScreen(back, importGeo)
-                                    "keys" -> KeyScreen(vm, back)
-                                    "broken",
-                                    "crashed" ->
-                                        Column {
-                                            LucidHeader("应用状态", back)
-                                            LucidEmpty(
-                                                if (kind == "broken") "安装包不完整" else "后台服务意外退出",
-                                                "请重新打开应用，或重新安装完整 APK。",
-                                            )
-                                        }
-                                }
+                                    }
                             }
                         }
                     }
-                    if (!wide && kind in listOf("home", "tools", "more")) Unit
                 }
-                if (kind in listOf("home", "tools", "more"))
-                    BoxWithConstraints {
-                        if (maxWidth < 600.dp) TabBar(kind) { stack = listOf(it) }
-                    }
             }
-            confirmation?.let { (message, action) ->
-                Dialog(onDismissRequest = { confirmation = null }) {
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(c.surface)
-                            .padding(top = 20.dp)
-                    ) {
-                        Text(
-                            message,
-                            Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                            color = c.text,
-                            fontSize = 17.sp,
-                            lineHeight = 24.sp,
-                        )
-                        LucidRow(
-                            "确认",
-                            onClick = {
-                                confirmation = null
-                                action()
-                            },
-                        )
-                        LucidRow("取消", onClick = { confirmation = null })
-                    }
+            if (kind in listOf("home", "tools", "more"))
+                BoxWithConstraints { if (maxWidth < 600.dp) TabBar(kind) { stack = listOf(it) } }
+        }
+        confirmation?.let { (message, action) ->
+            Dialog(onDismissRequest = { confirmation = null }) {
+                Column(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(c.surface)
+                        .padding(top = 20.dp)
+                ) {
+                    Text(
+                        message,
+                        Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                        color = c.text,
+                        fontSize = 17.sp,
+                        lineHeight = 24.sp,
+                    )
+                    LucidRow(
+                        "确认",
+                        onClick = {
+                            confirmation = null
+                            action()
+                        },
+                    )
+                    LucidRow("取消", onClick = { confirmation = null })
                 }
             }
         }
@@ -252,11 +243,16 @@ private fun TabBar(selected: String, select: (String) -> Unit) {
                 Column(
                     Modifier.weight(1f)
                         .heightIn(min = 58.dp)
-                        .clickable { select(route) }
+                        .lucidClickable { select(route) }
                         .padding(vertical = 7.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    val tint = if (selected == route) c.blue else c.secondary
+                    val tint by
+                        animateColorAsState(
+                            if (selected == route) c.blue else c.secondary,
+                            tween(160),
+                            label = "navigation-tab",
+                        )
                     LucidIcon(symbol, tint, Modifier.size(25.dp))
                     Text(title, Modifier.padding(top = 3.dp), color = tint, fontSize = 10.sp)
                 }

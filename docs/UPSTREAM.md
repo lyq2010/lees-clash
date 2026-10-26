@@ -14,3 +14,11 @@
 源码中的外部 Go import、依赖坐标、配置关键字与必要版权声明属于真实技术或许可信息，不作为用户可见的上游推广内容清理。
 
 本地验证使用的 Go Windows 归档 SHA-256：`2483b14ce111fa89ac671cdb00073c5b19670198be1334f491a8f3fe36affeb0`。
+
+## 本地 kaidl 运行库补丁
+
+`service/src/main/java/com/github/kr328/kaidl` 保存 Maven `com.github.kr328.kaidl:kaidl-runtime:1.15` 的三个源文件，来源归档 SHA-256 为 `15431dd467e82082c2cd79bb3bd4d6d3ddd8addf3d4b6667976b58aae1eb1837`。保留原包名供 1.15 KSP 生成代码引用，未更换线协议。
+
+本地修改：完成回调先复制到独立 Parcel，成功恢复调用协程后再复制进调用者 reply；取消时释放未交付快照；重复完成、取消及死亡信号用原子状态仲裁。避免取消后由迟到回调改写已经回收的 Parcel。原 AAR 已从 service 运行依赖中移除，不能与这些源文件同时打包。
+
+MIT 许可保存在同目录 LICENSE 并收入根 NOTICE。许可原文来源：[kaidl/LICENSE](https://github.com/kr328/kaidl/blob/master/LICENSE)。

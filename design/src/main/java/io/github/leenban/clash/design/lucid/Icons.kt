@@ -26,6 +26,7 @@ enum class LucidSymbol {
     Search,
     Check,
     Chevron,
+    Down,
     Back,
     Add,
     Folder,
@@ -47,6 +48,7 @@ fun LucidIcon(symbol: LucidSymbol, color: Color, modifier: Modifier = Modifier) 
             when (symbol) {
                 LucidSymbol.Check -> path(5f, 12f, 10f, 17f, 20f, 6f)
                 LucidSymbol.Chevron -> path(9f, 5f, 16f, 12f, 9f, 19f)
+                LucidSymbol.Down -> path(5f, 9f, 12f, 16f, 19f, 9f)
                 LucidSymbol.Back -> path(15f, 4f, 7f, 12f, 15f, 20f)
                 LucidSymbol.Add -> {
                     line(12f, 4f, 12f, 20f)

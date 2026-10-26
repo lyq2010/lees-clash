@@ -1,0 +1,5 @@
+io.github.leenban.clash.lucid.HomeUiTest:..
+
+Time: 1.226
+
+OK (2 tests)

@@ -29,11 +29,24 @@ class ClientViewModel(application: Application) :
     val state = mutable.asStateFlow()
     private val refreshMutex = Mutex()
     private var route = "home"
-    private var query = ""
     private var logJob: Job? = null
     private var logClient: io.github.leenban.clash.service.remote.IClashManager? = null
     private var searchJob: Job? = null
     private val json = DiagnosticJson.format
+    private val connections =
+        DiagnosticPager<ConnectionInfo>({ it.id }) { query, offset ->
+            json.decodeFromString(
+                DiagnosticPage.serializer(ConnectionInfo.serializer()),
+                repository.diagnostic("connections", query, offset),
+            )
+        }
+    private val rules =
+        DiagnosticPager<RuleInfo>({ it.index }) { query, offset ->
+            json.decodeFromString(
+                DiagnosticPage.serializer(RuleInfo.serializer()),
+                repository.diagnostic("rules", query, offset),
+            )
+        }
 
     fun clearError() {
         mutable.update { it.copy(error = null) }
@@ -47,20 +60,39 @@ class ClientViewModel(application: Application) :
         mutable.update { it.copy(starting = true, error = null) }
     }
 
-    fun navigate(destination: String) {
+    suspend fun navigate(destination: String) {
+        searchJob?.cancel()
+        if (destination.startsWith("connection/") && destination != route)
+            mutable.update { it.copy(connection = null, connectionEnded = false) }
         route = destination
-        query = ""
-        task { loadPage() }
+        try {
+            loadPage()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error(e.message ?: "页面加载失败")
+        }
     }
 
     fun search(value: String) {
-        query = value
+        when (route) {
+            "connections" -> {
+                connections.reset(value)
+                mutable.update { it.copy(connectionQuery = value, connections = connections.page) }
+            }
+            "rules" -> {
+                rules.reset(value)
+                mutable.update { it.copy(ruleQuery = value, rules = rules.page) }
+            }
+            else -> return
+        }
+        val requestedRoute = route
         searchJob?.cancel()
         searchJob =
             viewModelScope.launch {
                 delay(180)
                 try {
-                    refreshPage()
+                    if (route == requestedRoute) refreshPage()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -138,22 +170,17 @@ class ClientViewModel(application: Application) :
     }
 
     private suspend fun refreshPage() {
-        val screen = route.substringBefore('/')
-        val argument = android.net.Uri.decode(route.substringAfter('/', ""))
+        val requestedRoute = route
+        val screen = requestedRoute.substringBefore('/')
+        val argument = android.net.Uri.decode(requestedRoute.substringAfter('/', ""))
         when (screen) {
             "profiles" -> mutable.update { it.copy(profiles = repository.profiles()) }
             "profile" -> mutable.update { it.copy(editingProfile = repository.profile(argument)) }
             "groups" -> mutable.update { it.copy(groups = repository.groups()) }
             "nodes" -> mutable.update { it.copy(selectedGroup = repository.group(argument)) }
             "connections" ->
-                mutable.update {
-                    it.copy(
-                        connections =
-                            json.decodeFromString(
-                                DiagnosticPage.serializer(ConnectionInfo.serializer()),
-                                repository.diagnostic("connections", query),
-                            )
-                    )
+                connections.refresh()?.let { page ->
+                    if (route == requestedRoute) mutable.update { it.copy(connections = page) }
                 }
             "connection" ->
                 try {
@@ -162,21 +189,16 @@ class ClientViewModel(application: Application) :
                             ConnectionInfo.serializer(),
                             repository.diagnostic("connection", id = argument),
                         )
-                    mutable.update { it.copy(connection = connection, connectionEnded = false) }
+                    if (route == requestedRoute)
+                        mutable.update { it.copy(connection = connection, connectionEnded = false) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: IllegalStateException) {
-                    mutable.update { it.copy(connectionEnded = true) }
+                    if (route == requestedRoute) mutable.update { it.copy(connectionEnded = true) }
                 }
             "rules" ->
-                mutable.update {
-                    it.copy(
-                        rules =
-                            json.decodeFromString(
-                                DiagnosticPage.serializer(RuleInfo.serializer()),
-                                repository.diagnostic("rules", query),
-                            )
-                    )
+                rules.refresh()?.let { page ->
+                    if (route == requestedRoute) mutable.update { it.copy(rules = page) }
                 }
             "providers" -> mutable.update { it.copy(providers = repository.providers()) }
             "apps" -> mutable.update { it.copy(apps = repository.appChoices()) }
@@ -188,33 +210,20 @@ class ClientViewModel(application: Application) :
     }
 
     fun moreConnections() {
+        if (route != "connections") return
         task {
-            val current = mutable.value.connections
-            if (current.nextOffset < 0) return@task
-            val next =
-                json.decodeFromString(
-                    DiagnosticPage.serializer(ConnectionInfo.serializer()),
-                    repository.diagnostic("connections", query, current.nextOffset),
-                )
-            mutable.update {
-                it.copy(
-                    connections =
-                        next.copy(items = (current.items + next.items).distinctBy { c -> c.id })
-                )
+            connections.more()?.let { page ->
+                if (route == "connections") mutable.update { it.copy(connections = page) }
             }
         }
     }
 
     fun moreRules() {
+        if (route != "rules") return
         task {
-            val current = mutable.value.rules
-            if (current.nextOffset < 0) return@task
-            val next =
-                json.decodeFromString(
-                    DiagnosticPage.serializer(RuleInfo.serializer()),
-                    repository.diagnostic("rules", query, current.nextOffset),
-                )
-            mutable.update { it.copy(rules = next.copy(items = current.items + next.items)) }
+            rules.more()?.let { page ->
+                if (route == "rules") mutable.update { it.copy(rules = page) }
+            }
         }
     }
 
@@ -292,6 +301,7 @@ class ClientViewModel(application: Application) :
     override fun onProfileLoaded() = changed()
 
     suspend fun detach() {
+        searchJob?.cancel()
         logJob?.cancel()
         logJob = null
         val client = logClient

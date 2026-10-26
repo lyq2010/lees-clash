@@ -1,0 +1,5 @@
+io.github.leenban.clash.lucid.DiagnosticLifecycleTest:.
+
+Time: 4.291
+
+OK (1 test)

@@ -56,13 +56,14 @@ class HTTP(http.server.BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
-        elif self.path == "/slow":
+        elif self.path in ("/slow", "/hold"):
             self.send_response(200)
             self.send_header("Content-Length", "65536")
             self.end_headers()
             try:
-                for _ in range(16):
-                    self.wfile.write(b"x" * 4096)
+                chunks = 240 if self.path == "/hold" else 16
+                for _ in range(chunks):
+                    self.wfile.write(b"x" * (1 if self.path == "/hold" else 4096))
                     self.wfile.flush()
                     time.sleep(.25)
             except (ConnectionError, OSError):

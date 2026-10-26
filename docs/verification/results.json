@@ -12,7 +12,7 @@
   },
   "apk": {
     "path": "app/build/intermediates/apk/alpha/debug/lees-clash-0.1.0-alpha-x86_64-debug.apk",
-    "sha256": "4cfe36301494ab217ea26056f783debda5c490dd2c218282dadaea69e4f7e691",
+    "sha256": "4ee00d05276dd0075f275c0a37b4a14887b26c559aebeebbddc864bb838f4fba",
     "testOnly": true
   },
   "checks": [
@@ -23,12 +23,12 @@
     {
       "name": "app Debug APK + AndroidTest APK build",
       "status": "passed",
-      "log": "I:/DevCache/lees-clash-final-build.log"
+      "log": "I:/DevCache/lees-clash-binder-fix-build.log"
     },
     {
-      "name": "ClientFormattingTest",
+      "name": "Kotlin unit tests",
       "status": "passed",
-      "tests": 1
+      "tests": 5
     },
     {
       "name": "Go diagnostics",
@@ -74,6 +74,37 @@
     {
       "name": "Android 8 / tablet / large fonts / cellular switching",
       "status": "not_run"
+    },
+    {
+      "name": "BinderCancellationTest",
+      "status": "passed",
+      "tests": 2,
+      "evidence": "docs/verification/binder-cancellation.txt"
+    },
+    {
+      "name": "HomeUiTest",
+      "status": "passed",
+      "tests": 2,
+      "evidence": "docs/verification/home-ui.txt"
+    },
+    {
+      "name": "DiagnosticPagingTest",
+      "status": "passed",
+      "tests": 1,
+      "evidence": "docs/verification/paging.txt"
+    },
+    {
+      "name": "DiagnosticLifecycleTest",
+      "status": "passed",
+      "tests": 1,
+      "evidence": "docs/verification/lifecycle.txt"
+    },
+    {
+      "name": "Navigation with animator_duration_scale=0",
+      "status": "passed",
+      "runs": 3,
+      "originalScaleRestored": 0.5,
+      "evidence": "docs/verification/no-animation.txt"
     }
   ],
   "cleanup": {
@@ -88,8 +119,8 @@
     "sourceFilesDeleted": false
   },
   "knownIssues": [
-    "Active connection pagination can reset to the first page during the one-second refresh.",
     "All legacy files remain pending an approved precise cleanup inventory.",
-    "Advanced configuration, file operations, QR and external provider flows are not fully covered by end-to-end tests."
+    "Advanced configuration, file operations, QR and external provider flows are not fully covered by end-to-end tests.",
+    "Long-duration load and service-process-death stress testing remain incomplete."
   ]
 }

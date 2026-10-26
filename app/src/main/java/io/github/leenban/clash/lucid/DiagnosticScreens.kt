@@ -22,17 +22,9 @@ fun ConnectionsScreen(
     back: () -> Unit,
     confirm: (String, () -> Unit) -> Unit,
 ) {
-    var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("实时连接", back, "全部关闭") { confirm("关闭全部连接？现有传输将会中断。", vm::closeAll) }
-        LucidSearch(
-            query,
-            {
-                query = it
-                vm.search(it)
-            },
-            "域名、IP、应用、协议或策略",
-        )
+        LucidSearch(state.connectionQuery, vm::search, "域名、IP、应用、协议或策略")
         Text(
             "${state.connections.total} 个活动连接",
             Modifier.padding(horizontal = 24.dp, vertical = 7.dp),
@@ -51,7 +43,14 @@ fun ConnectionsScreen(
                 }
             }
             if (state.connections.nextOffset >= 0)
-                item { LucidSection { LucidRow("加载更多", onClick = vm::moreConnections) } }
+                item {
+                    LucidSection {
+                        LucidRow(
+                            if (state.busy) "加载中" else "加载更多",
+                            onClick = if (state.busy) null else vm::moreConnections,
+                        )
+                    }
+                }
             if (state.connections.items.isEmpty())
                 item {
                     LucidEmpty(
@@ -127,17 +126,9 @@ fun ConnectionScreen(
 
 @Composable
 fun RulesScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
-    var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("代理规则", back, "刷新") { vm.changed() }
-        LucidSearch(
-            query,
-            {
-                query = it
-                vm.search(it)
-            },
-            "规则类型、内容或目标策略",
-        )
+        LucidSearch(state.ruleQuery, vm::search, "规则类型、内容或目标策略")
         Text(
             "${state.rules.total} 条生效规则",
             Modifier.padding(horizontal = 24.dp, vertical = 7.dp),
@@ -155,7 +146,14 @@ fun RulesScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
                 }
             }
             if (state.rules.nextOffset >= 0)
-                item { LucidSection { LucidRow("加载更多", onClick = vm::moreRules) } }
+                item {
+                    LucidSection {
+                        LucidRow(
+                            if (state.busy) "加载中" else "加载更多",
+                            onClick = if (state.busy) null else vm::moreRules,
+                        )
+                    }
+                }
             if (state.rules.items.isEmpty()) item { LucidEmpty("没有匹配的规则") }
         }
     }

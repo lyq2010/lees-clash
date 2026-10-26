@@ -1,0 +1,5 @@
+io.github.leenban.clash.lucid.DiagnosticPagingTest:.
+
+Time: 6.078
+
+OK (1 test)

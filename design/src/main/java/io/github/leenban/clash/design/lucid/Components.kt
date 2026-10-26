@@ -1,7 +1,8 @@
 package io.github.leenban.clash.design.lucid
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +10,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,20 +34,28 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun LucidPill(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     val c = LocalLucidColors.current
+    val color by
+        animateColorAsState(
+            c.blue.copy(alpha = if (enabled) 1f else .4f),
+            tween(160),
+            label = "service-button",
+        )
     Box(
         Modifier.heightIn(min = 48.dp)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            .lucidClickable(enabled = enabled, scale = true, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
+        Crossfade(
             text,
             Modifier.clip(RoundedCornerShape(24.dp))
-                .background(c.blue.copy(alpha = if (enabled) 1f else .4f))
+                .background(color)
+                .animateContentSize(tween(160))
                 .padding(horizontal = 21.dp, vertical = 7.dp),
-            Color.White,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
+            tween(120),
+            label = "service-label",
+        ) { label ->
+            Text(label, Modifier, Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -65,7 +75,7 @@ fun LucidHeader(
             Box(
                 Modifier.size(48.dp)
                     .semantics { contentDescription = "返回" }
-                    .clickable(role = Role.Button, onClick = back),
+                    .lucidClickable(onClick = back),
                 contentAlignment = Alignment.Center,
             ) {
                 LucidIcon(LucidSymbol.Back, c.blue, Modifier.size(25.dp))
@@ -84,7 +94,7 @@ fun LucidHeader(
                 action,
                 Modifier.heightIn(min = 48.dp)
                     .wrapContentHeight()
-                    .clickable(role = Role.Button, onClick = onAction)
+                    .lucidClickable(onClick = onAction)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
                 color = c.blue,
                 fontSize = 17.sp,
@@ -145,7 +155,7 @@ fun LucidRow(
                 )
                 .then(
                     if (onClick != null)
-                        Modifier.clickable(
+                        Modifier.lucidClickable(
                             role = if (selected != null) Role.RadioButton else Role.Button,
                             onClick = onClick,
                         )
@@ -182,10 +192,17 @@ fun LucidRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-            if (selected == true) {
-                Spacer(Modifier.width(10.dp))
-                LucidIcon(LucidSymbol.Check, c.blue, Modifier.size(21.dp))
-            } else if (onClick != null && selected == null) {
+            AnimatedVisibility(
+                selected == true,
+                enter = fadeIn(tween(140)) + expandHorizontally(tween(160)),
+                exit = fadeOut(tween(100)) + shrinkHorizontally(tween(160)),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.width(10.dp))
+                    LucidIcon(LucidSymbol.Check, c.blue, Modifier.size(21.dp))
+                }
+            }
+            if (onClick != null && selected == null) {
                 Spacer(Modifier.width(10.dp))
                 LucidIcon(LucidSymbol.Chevron, c.secondary.copy(alpha = .6f), Modifier.size(15.dp))
             }
@@ -193,7 +210,7 @@ fun LucidRow(
                 Box(
                     Modifier.size(48.dp)
                         .semantics { contentDescription = "编辑$title" }
-                        .clickable(role = Role.Button, onClick = onDetail),
+                        .lucidClickable(onClick = onDetail),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("ⓘ", color = c.blue, fontSize = 22.sp)
@@ -286,6 +303,14 @@ fun LucidToggle(
     onToggle: (Boolean) -> Unit,
 ) {
     val c = LocalLucidColors.current
+    val thumb by
+        animateDpAsState(
+            if (checked) 19.dp else 0.dp,
+            tween(180, easing = FastOutSlowInEasing),
+            label = "switch-thumb",
+        )
+    val track by
+        animateColorAsState(if (checked) c.green else c.field, tween(180), label = "switch-track")
     Row(
         Modifier.fillMaxWidth()
             .heightIn(min = 54.dp)
@@ -301,11 +326,16 @@ fun LucidToggle(
             Modifier.width(49.dp)
                 .height(30.dp)
                 .clip(RoundedCornerShape(20.dp))
-                .background(if (checked) c.green else c.field)
+                .background(track)
                 .padding(2.dp),
-            contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
+            contentAlignment = Alignment.CenterStart,
         ) {
-            Box(Modifier.size(26.dp).clip(RoundedCornerShape(20.dp)).background(Color.White))
+            Box(
+                Modifier.offset(x = thumb)
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.White)
+            )
         }
     }
 }

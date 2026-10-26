@@ -13,6 +13,7 @@
 
 - [交接文档](docs/HANDOFF.md)
 - [开发矩阵与未完成项](docs/DEVELOPMENT-MATRIX.md)
+- [界面、动效与品牌规范](docs/UI-DESIGN.md)
 - [验证结果与截图](docs/VERIFICATION.md)
 - [构建与发布](docs/RELEASE.md)
 - [来源版本](docs/UPSTREAM.md)

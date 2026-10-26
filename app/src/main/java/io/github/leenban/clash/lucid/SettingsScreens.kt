@@ -37,39 +37,63 @@ fun NetworkScreen(
     }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("VPN 与网络", back)
-        key(revision) {
+        run {
             LazyColumn {
                 item {
                     LucidSection(
                         "流量接管",
                         footer = if (state.running) "停止服务后可更改网络接管选项。" else "关闭 VPN 后仅启动本地代理服务。",
                     ) {
-                        LucidToggle("使用 VPN 接管系统流量", repo.ui.enableVpn, !state.running) {
+                        LucidToggle(
+                            "使用 VPN 接管系统流量",
+                            remember(revision) { repo.ui.enableVpn },
+                            !state.running,
+                        ) {
                             update { repo.ui.enableVpn = it }
                         }
                     }
                 }
                 item {
                     LucidSection("VPN 选项") {
-                        LucidToggle("绕过局域网", repo.service.bypassPrivateNetwork, !state.running) {
+                        LucidToggle(
+                            "绕过局域网",
+                            remember(revision) { repo.service.bypassPrivateNetwork },
+                            !state.running,
+                        ) {
                             update { repo.service.bypassPrivateNetwork = it }
                         }
-                        LucidToggle("DNS 劫持", repo.service.dnsHijacking, !state.running) {
+                        LucidToggle(
+                            "DNS 劫持",
+                            remember(revision) { repo.service.dnsHijacking },
+                            !state.running,
+                        ) {
                             update { repo.service.dnsHijacking = it }
                         }
-                        LucidToggle("允许应用绕过 VPN", repo.service.allowBypass, !state.running) {
+                        LucidToggle(
+                            "允许应用绕过 VPN",
+                            remember(revision) { repo.service.allowBypass },
+                            !state.running,
+                        ) {
                             update { repo.service.allowBypass = it }
                         }
-                        LucidToggle("允许 IPv6", repo.service.allowIpv6, !state.running) {
+                        LucidToggle(
+                            "允许 IPv6",
+                            remember(revision) { repo.service.allowIpv6 },
+                            !state.running,
+                        ) {
                             update { repo.service.allowIpv6 = it }
                         }
                         if (Build.VERSION.SDK_INT >= 29)
-                            LucidToggle("系统 HTTP 代理", repo.service.systemProxy, !state.running) {
+                            LucidToggle(
+                                "系统 HTTP 代理",
+                                remember(revision) { repo.service.systemProxy },
+                                !state.running,
+                            ) {
                                 update { repo.service.systemProxy = it }
                             }
                         LucidRow(
                             "TUN 协议栈",
-                            value = repo.service.tunStackMode,
+                            value = remember(revision) { repo.service.tunStackMode },
                             onClick =
                                 if (state.running) null
                                 else {
@@ -90,7 +114,10 @@ fun NetworkScreen(
                     LucidSection("分应用代理") {
                         LucidRow(
                             "代理模式",
-                            value = accessModeTitle(repo.service.accessControlMode),
+                            value =
+                                accessModeTitle(
+                                    remember(revision) { repo.service.accessControlMode }
+                                ),
                             onClick =
                                 if (state.running) null
                                 else {
@@ -183,23 +210,20 @@ fun SettingsScreen(
     val repo = vm.repository
     var revision by remember { mutableIntStateOf(0) }
     val component = ComponentName(context, RestartReceiver::class.java)
-    val auto =
-        context.packageManager.getComponentEnabledSetting(component) ==
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
     fun update(block: () -> Unit) {
         block()
         revision++
     }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("应用设置", back)
-        key(revision) {
+        run {
             LazyColumn {
                 item {
                     LucidSection("界面") {
                         LucidRow(
                             "外观",
                             value =
-                                when (repo.ui.darkMode) {
+                                when (remember(revision) { repo.ui.darkMode }) {
                                     DarkMode.Auto -> "跟随系统"
                                     DarkMode.ForceLight -> "浅色"
                                     else -> "深色"
@@ -213,13 +237,13 @@ fun SettingsScreen(
                                 themeChanged()
                             },
                         )
-                        LucidToggle("从最近任务中隐藏", repo.ui.hideFromRecents) {
+                        LucidToggle("从最近任务中隐藏", remember(revision) { repo.ui.hideFromRecents }) {
                             update {
                                 repo.ui.hideFromRecents = it
                                 (context as? Activity)?.setExcludeFromRecents(it)
                             }
                         }
-                        LucidToggle("隐藏桌面图标", repo.ui.hideAppIcon) { hide ->
+                        LucidToggle("隐藏桌面图标", remember(revision) { repo.ui.hideAppIcon }) { hide ->
                             val action = {
                                 update {
                                     repo.ui.hideAppIcon = hide
@@ -238,7 +262,13 @@ fun SettingsScreen(
                 }
                 item {
                     LucidSection("服务") {
-                        LucidToggle("开机与更新后自动启动", auto) { value ->
+                        LucidToggle(
+                            "开机与更新后自动启动",
+                            remember(revision) {
+                                context.packageManager.getComponentEnabledSetting(component) ==
+                                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                            },
+                        ) { value ->
                             update {
                                 context.packageManager.setComponentEnabledSetting(
                                     component,
@@ -248,14 +278,21 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        LucidToggle("通知显示实时流量", repo.service.dynamicNotification, !state.running) {
+                        LucidToggle(
+                            "通知显示实时流量",
+                            remember(revision) { repo.service.dynamicNotification },
+                            !state.running,
+                        ) {
                             update { repo.service.dynamicNotification = it }
                         }
                     }
                 }
                 item {
                     LucidSection("策略显示") {
-                        LucidToggle("仅显示可手动选择的策略组", repo.ui.proxyExcludeNotSelectable) {
+                        LucidToggle(
+                            "仅显示可手动选择的策略组",
+                            remember(revision) { repo.ui.proxyExcludeNotSelectable },
+                        ) {
                             update { repo.ui.proxyExcludeNotSelectable = it }
                         }
                     }

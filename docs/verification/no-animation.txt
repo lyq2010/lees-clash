@@ -1,0 +1,31 @@
+Pass 1
+
+io.github.leenban.clash.lucid.NavigationSmokeTest:.
+
+Time: 3.539
+
+OK (1 test)
+
+
+
+Pass 2
+
+io.github.leenban.clash.lucid.NavigationSmokeTest:.
+
+Time: 3.368
+
+OK (1 test)
+
+
+
+Pass 3
+
+io.github.leenban.clash.lucid.NavigationSmokeTest:.
+
+Time: 3.388
+
+OK (1 test)
+
+
+
+Animator duration scale restored to 0.5.

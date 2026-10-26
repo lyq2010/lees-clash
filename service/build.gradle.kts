@@ -17,7 +17,7 @@ dependencies {
     implementation(libs.androidx.core)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    implementation(libs.kaidl.runtime)
+    // kaidl 1.15 runtime is vendored with a cancellation-safe Parcel handoff.
     implementation(libs.rikkax.multiprocess)
 }
 

@@ -1,0 +1,5 @@
+io.github.leenban.clash.lucid.BinderCancellationTest:..
+
+Time: 0.009
+
+OK (2 tests)
