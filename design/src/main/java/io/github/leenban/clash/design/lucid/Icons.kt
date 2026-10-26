@@ -27,6 +27,8 @@ enum class LucidSymbol {
     Check,
     Chevron,
     Down,
+    Refresh,
+    Edit,
     Back,
     Add,
     Folder,
@@ -49,6 +51,22 @@ fun LucidIcon(symbol: LucidSymbol, color: Color, modifier: Modifier = Modifier) 
                 LucidSymbol.Check -> path(5f, 12f, 10f, 17f, 20f, 6f)
                 LucidSymbol.Chevron -> path(9f, 5f, 16f, 12f, 9f, 19f)
                 LucidSymbol.Down -> path(5f, 9f, 12f, 16f, 19f, 9f)
+                LucidSymbol.Refresh -> {
+                    drawArc(
+                        color,
+                        -55f,
+                        295f,
+                        false,
+                        Offset(4f, 4f),
+                        Size(16f, 16f),
+                        style = Stroke(1.8f, cap = StrokeCap.Round),
+                    )
+                    path(15f, 3f, 20f, 5f, 18f, 10f)
+                }
+                LucidSymbol.Edit -> {
+                    path(4f, 16f, 15f, 5f, 19f, 9f, 8f, 20f, 4f, 20f, 4f, 16f)
+                    line(13f, 7f, 17f, 11f)
+                }
                 LucidSymbol.Back -> path(15f, 4f, 7f, 12f, 15f, 20f)
                 LucidSymbol.Add -> {
                     line(12f, 4f, 12f, 20f)

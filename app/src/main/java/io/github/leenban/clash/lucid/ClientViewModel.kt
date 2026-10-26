@@ -32,6 +32,10 @@ class ClientViewModel(application: Application) :
     private var logJob: Job? = null
     private var logClient: io.github.leenban.clash.service.remote.IClashManager? = null
     private var searchJob: Job? = null
+    private var taskSequence = 0L
+    private var activeTasks = 0
+    private val operations = linkedMapOf<Long, String>()
+    private var pageVersion = 0
     private val json = DiagnosticJson.format
     private val connections =
         DiagnosticPager<ConnectionInfo>({ it.id }) { query, offset ->
@@ -52,6 +56,79 @@ class ClientViewModel(application: Application) :
         mutable.update { it.copy(error = null) }
     }
 
+    fun clearNotice(id: Long) {
+        mutable.update { if (it.notice?.id == id) it.copy(notice = null) else it }
+    }
+
+    fun notice(message: String) {
+        mutable.update { it.copy(notice = ClientNotice(++taskSequence, message)) }
+    }
+
+    fun consumeImport(id: UUID) {
+        mutable.update { if (it.importedProfile == id) it.copy(importedProfile = null) else it }
+    }
+
+    fun openRoute(destination: String) {
+        mutable.update { it.copy(navigation = ClientNavigation(++taskSequence, destination)) }
+    }
+
+    fun consumeNavigation(id: Long) {
+        mutable.update { if (it.navigation?.id == id) it.copy(navigation = null) else it }
+    }
+
+    suspend fun imported(id: UUID) {
+        val profiles = repository.profiles()
+        val active = repository.active()
+        mutable.update {
+            it.copy(profiles = profiles, active = active, importedProfile = id, recentProfile = id)
+        }
+    }
+
+    fun importProfile(name: String, url: String, secret: String) {
+        if (mutable.value.importing) return
+        mutable.update {
+            it.copy(importing = true, importStatus = "正在下载配置", importedProfile = null)
+        }
+        task(progress = "正在导入配置", success = "配置已添加") {
+            try {
+                val id =
+                    repository.importUrl(name.ifBlank { "订阅配置" }, url, secret) { status ->
+                        val stage =
+                            when (status.action) {
+                                FetchStatus.Action.FetchConfiguration -> "正在下载配置"
+                                FetchStatus.Action.FetchProviders ->
+                                    "正在下载资源（${status.progress + 1}/${status.max}）"
+                                FetchStatus.Action.Verifying -> "正在验证配置"
+                                else -> "正在保存配置"
+                            }
+                        mutable.update { it.copy(importStatus = stage) }
+                    }
+                imported(id)
+            } finally {
+                mutable.update { it.copy(importing = false) }
+            }
+        }
+    }
+
+    fun updateProfile(profile: io.github.leenban.clash.service.model.Profile) {
+        if (!profile.imported) {
+            error("该配置尚未完成导入，请先编辑并保存")
+            return
+        }
+        if (profile.uuid in mutable.value.updatingProfiles) return
+        mutable.update { it.copy(updatingProfiles = it.updatingProfiles + profile.uuid) }
+        task(progress = "正在更新“${profile.name}”", success = "配置更新完成") {
+            try {
+                repository.reload(profile)
+                val profiles = repository.profiles()
+                mutable.update { it.copy(profiles = profiles) }
+                refreshPage()
+            } finally {
+                mutable.update { it.copy(updatingProfiles = it.updatingProfiles - profile.uuid) }
+            }
+        }
+    }
+
     fun error(message: String) {
         mutable.update { it.copy(error = message, starting = false) }
     }
@@ -65,12 +142,16 @@ class ClientViewModel(application: Application) :
         if (destination.startsWith("connection/") && destination != route)
             mutable.update { it.copy(connection = null, connectionEnded = false) }
         route = destination
+        val version = ++pageVersion
+        mutable.update { it.copy(pageLoading = true) }
         try {
             loadPage()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             error(e.message ?: "页面加载失败")
+        } finally {
+            if (version == pageVersion) mutable.update { it.copy(pageLoading = false) }
         }
     }
 
@@ -101,28 +182,52 @@ class ClientViewModel(application: Application) :
             }
     }
 
-    fun task(done: () -> Unit = {}, operation: suspend () -> Unit) {
+    fun task(
+        done: () -> Unit = {},
+        progress: String? = null,
+        success: String? = null,
+        operation: suspend () -> Unit,
+    ) {
         viewModelScope.launch {
-            mutable.update { it.copy(busy = true, error = null) }
+            val id = ++taskSequence
+            activeTasks++
+            if (progress != null) operations[id] = progress
+            mutable.update {
+                it.copy(busy = true, error = null, operation = operations.values.lastOrNull())
+            }
             try {
                 operation()
+                if (success != null) notice(success)
                 done()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 error(e.message ?: "操作失败，请重试")
             } finally {
-                mutable.update { it.copy(busy = false) }
+                activeTasks--
+                operations.remove(id)
+                mutable.update {
+                    it.copy(busy = activeTasks > 0, operation = operations.values.lastOrNull())
+                }
             }
         }
     }
 
-    suspend fun refresh() {
+    suspend fun refresh(forceMode: Boolean = false) {
         refreshMutex.withLock {
             try {
                 val running = Remote.broadcasts.clashRunning
                 val active = repository.active()
-                val mode = repository.mode()
+                val previous = mutable.value
+                val mode =
+                    if (
+                        running ||
+                            forceMode ||
+                            active?.uuid != previous.active?.uuid ||
+                            active?.updatedAt != previous.active?.updatedAt
+                    )
+                        repository.mode()
+                    else previous.mode
                 val traffic =
                     if (running)
                         json.decodeFromString(
@@ -174,10 +279,22 @@ class ClientViewModel(application: Application) :
         val screen = requestedRoute.substringBefore('/')
         val argument = android.net.Uri.decode(requestedRoute.substringAfter('/', ""))
         when (screen) {
-            "profiles" -> mutable.update { it.copy(profiles = repository.profiles()) }
-            "profile" -> mutable.update { it.copy(editingProfile = repository.profile(argument)) }
-            "groups" -> mutable.update { it.copy(groups = repository.groups()) }
-            "nodes" -> mutable.update { it.copy(selectedGroup = repository.group(argument)) }
+            "profiles" -> {
+                val value = repository.profiles()
+                if (route == requestedRoute) mutable.update { it.copy(profiles = value) }
+            }
+            "profile" -> {
+                val value = repository.profile(argument)
+                if (route == requestedRoute) mutable.update { it.copy(editingProfile = value) }
+            }
+            "groups" -> {
+                val value = repository.groups()
+                if (route == requestedRoute) mutable.update { it.copy(groups = value) }
+            }
+            "nodes" -> {
+                val value = repository.group(argument)
+                if (route == requestedRoute) mutable.update { it.copy(selectedGroup = value) }
+            }
             "connections" ->
                 connections.refresh()?.let { page ->
                     if (route == requestedRoute) mutable.update { it.copy(connections = page) }
@@ -200,12 +317,27 @@ class ClientViewModel(application: Application) :
                 rules.refresh()?.let { page ->
                     if (route == requestedRoute) mutable.update { it.copy(rules = page) }
                 }
-            "providers" -> mutable.update { it.copy(providers = repository.providers()) }
-            "apps" -> mutable.update { it.copy(apps = repository.appChoices()) }
+            "providers" -> {
+                val value = repository.providers()
+                if (route == requestedRoute) mutable.update { it.copy(providers = value) }
+            }
+            "apps" -> {
+                val value = repository.appChoices()
+                if (route == requestedRoute) mutable.update { it.copy(apps = value) }
+            }
             "override",
-            "dns-settings" -> mutable.update { it.copy(overrideJson = repository.overrideText()) }
-            "files" -> mutable.update { it.copy(files = repository.files.list(argument)) }
-            "about" -> mutable.update { it.copy(coreVersion = repository.coreVersion()) }
+            "dns-settings" -> {
+                val value = repository.overrideText()
+                if (route == requestedRoute) mutable.update { it.copy(overrideJson = value) }
+            }
+            "files" -> {
+                val value = repository.files.list(argument)
+                if (route == requestedRoute) mutable.update { it.copy(files = value) }
+            }
+            "about" -> {
+                val value = repository.coreVersion()
+                if (route == requestedRoute) mutable.update { it.copy(coreVersion = value) }
+            }
         }
     }
 
@@ -228,7 +360,11 @@ class ClientViewModel(application: Application) :
     }
 
     fun dns(domain: String, type: String) {
-        task {
+        if (!mutable.value.running) {
+            error("启动服务后可使用当前配置的 DNS 查询")
+            return
+        }
+        task(progress = "正在查询 DNS") {
             val result =
                 json.decodeFromString(
                     DnsResult.serializer(),
@@ -239,43 +375,60 @@ class ClientViewModel(application: Application) :
     }
 
     fun close(id: String) {
-        task {
+        task(progress = "正在关闭连接", success = "连接已关闭") {
             repository.diagnostic("close", id = id)
             refreshPage()
         }
     }
 
     fun closeAll() {
-        task {
+        task(progress = "正在关闭连接", success = "全部连接已关闭") {
             repository.diagnostic("closeAll")
             refreshPage()
         }
     }
 
     fun selectGroup(name: String, proxy: String) {
-        task {
+        task(
+            progress = "正在保存策略",
+            success = if (mutable.value.running) "代理策略已切换" else "策略已保存，下次启动生效",
+        ) {
             repository.select(name, proxy)
             refreshPage()
         }
     }
 
     fun health(name: String) {
-        task {
+        task(progress = "正在测速", success = "测速完成") {
             repository.health(name)
             refreshPage()
         }
     }
 
     fun setMode(mode: TunnelState.Mode) {
-        task {
+        task(success = "已切换为${modeTitle(mode)}") {
             repository.setMode(mode)
+            mutable.update { it.copy(mode = mode) }
             refresh()
         }
     }
 
     fun changed() {
-        task {
-            refresh()
+        viewModelScope.launch {
+            try {
+                refresh(forceMode = true)
+                refreshPage()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error(e.message ?: "刷新失败")
+            }
+        }
+    }
+
+    fun reloadPage() {
+        task(progress = "正在刷新", success = "已刷新") {
+            refresh(forceMode = true)
             refreshPage()
         }
     }
@@ -285,11 +438,13 @@ class ClientViewModel(application: Application) :
     override fun onStarted() {
         mutable.update { it.copy(starting = false) }
         changed()
+        notice("服务已启动")
     }
 
     override fun onStopped(cause: String?) {
         mutable.update { it.copy(starting = false, running = false, error = cause) }
         changed()
+        if (cause == null) notice("服务已停止")
     }
 
     override fun onProfileChanged() = changed()

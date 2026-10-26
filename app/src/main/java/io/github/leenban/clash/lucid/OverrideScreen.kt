@@ -131,8 +131,12 @@ fun OverrideScreen(
                 ?: if (keys.isEmpty()) "配置覆写" else overrideTitles[keys.last()] ?: keys.last(),
             goBack,
             if (editing == null) "完成" else "确定",
+            actionEnabled = !state.busy,
         ) {
-            if (editing == null) vm.task(done = back) { vm.repository.saveOverride(draft) }
+            if (editing == null)
+                vm.task(done = back, progress = "正在保存覆写", success = "覆写已保存") {
+                    vm.repository.saveOverride(draft)
+                }
             else
                 try {
                     val key = editing!!
@@ -252,7 +256,9 @@ fun OverrideScreen(
                                 destructive = true,
                                 onClick = {
                                     confirm("清除全部持久覆写？原配置文件不会改变。") {
-                                        vm.task(done = back) { vm.repository.resetOverride() }
+                                        vm.task(done = back, success = "覆写已重置") {
+                                            vm.repository.resetOverride()
+                                        }
                                     }
                                 },
                             )

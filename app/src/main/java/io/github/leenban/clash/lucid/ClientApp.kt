@@ -5,7 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,7 +44,7 @@ fun ClientApp(
     finish: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var stack by rememberSaveable { mutableStateOf(listOf(initialRoute)) }
+    var stack by rememberSaveable(initialRoute) { mutableStateOf(listOf(initialRoute)) }
     val route = stack.last()
     val kind = route.substringBefore('/')
     var themeRevision by remember { mutableIntStateOf(0) }
@@ -59,6 +58,30 @@ fun ClientApp(
     }
     val owner = LocalLifecycleOwner.current
     val holder = rememberSaveableStateHolder()
+    LaunchedEffect(state.navigation?.id) {
+        state.navigation?.let { request ->
+            vm.consumeNavigation(request.id)
+            if (request.route != route)
+                stack =
+                    if (kind == "import" && request.route.startsWith("import/"))
+                        stack.dropLast(1) + request.route
+                    else stack + request.route
+        }
+    }
+    LaunchedEffect(state.importedProfile) {
+        state.importedProfile?.let { id ->
+            vm.consumeImport(id)
+            if (kind == "import")
+                stack =
+                    if (initialRoute == "home") listOf("home", "profiles") else listOf("profiles")
+        }
+    }
+    LaunchedEffect(state.notice?.id) {
+        state.notice?.let {
+            delay(4000)
+            vm.clearNotice(it.id)
+        }
+    }
     LaunchedEffect(owner, route) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
@@ -97,45 +120,42 @@ fun ClientApp(
                 .background(c.background)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
         ) {
-            if (state.error != null)
-                Row(
-                    Modifier.fillMaxWidth()
-                        .background(c.red.copy(alpha = .12f))
-                        .clickable { vm.clearError() }
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        state.error.orEmpty(),
-                        Modifier.weight(1f),
-                        color = c.red,
-                        fontSize = 14.sp,
-                    )
-                    Text("关闭", Modifier.padding(start = 10.dp), color = c.red, fontSize = 13.sp)
-                }
+            ClientFeedback(state) {
+                if (state.error != null) vm.clearError()
+                else state.notice?.let { vm.clearNotice(it.id) }
+            }
             BoxWithConstraints(Modifier.weight(1f)) {
                 val wide = maxWidth >= 600.dp
                 Row(Modifier.fillMaxSize()) {
                     if (wide)
-                        Column(Modifier.width(290.dp).fillMaxHeight()) {
-                            Box(Modifier.weight(1f)) {
-                                HomeScreen(state, navigate, toggle, vm::setMode)
+                        Column(Modifier.width(210.dp).fillMaxHeight()) {
+                            Text(
+                                "Lee’s Clash",
+                                Modifier.padding(20.dp),
+                                color = c.text,
+                                fontSize = 22.sp,
+                            )
+                            listOf("home" to "首页", "tools" to "工具", "more" to "更多").forEach {
+                                (destination, title) ->
+                                LucidRow(
+                                    title,
+                                    selected = stack.first() == destination,
+                                    onClick = { stack = listOf(destination) },
+                                )
                             }
-                            TabBar(if (kind == "more") "more" else "home") { stack = listOf(it) }
                         }
                     LucidPageStack(stack, Modifier.weight(1f).fillMaxHeight()) { visibleRoute ->
                         val visibleKind = visibleRoute.substringBefore('/')
                         val argument = Uri.decode(visibleRoute.substringAfter('/', ""))
                         holder.SaveableStateProvider(visibleRoute) {
                             when (visibleKind) {
-                                "home" ->
-                                    if (wide) ToolsScreen(navigate)
-                                    else HomeScreen(state, navigate, toggle, vm::setMode)
+                                "home" -> HomeScreen(state, navigate, toggle, vm::setMode)
                                 "tools" -> ToolsScreen(navigate)
                                 "more" -> MoreScreen(navigate)
                                 "profiles" -> ProfilesScreen(state, vm, navigate, back)
                                 "import" ->
                                     ImportScreen(
+                                        state,
                                         vm,
                                         back,
                                         { importFile(null) },
@@ -333,6 +353,7 @@ private fun KeyScreen(vm: ClientViewModel, back: () -> Unit) {
                                     putBoolean("android.content.extra.IS_SENSITIVE", true)
                                 }
                         manager.setPrimaryClip(clip)
+                        vm.notice("密钥对已复制")
                     },
                 )
             }

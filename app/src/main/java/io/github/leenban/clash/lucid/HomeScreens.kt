@@ -319,7 +319,7 @@ fun ToolsScreen(navigate: (String) -> Unit) {
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold,
         )
-        LucidSection("当前会话") {
+        LucidSection("网络诊断") {
             LucidRow(
                 "实时连接",
                 symbol = LucidSymbol.List,
@@ -334,36 +334,16 @@ fun ToolsScreen(navigate: (String) -> Unit) {
                 onClick = { navigate("stats") },
             )
             LucidRow(
-                "代理策略",
-                symbol = LucidSymbol.Network,
-                tint = Color(0xFF34C759),
-                onClick = { navigate("groups") },
-            )
-            LucidRow(
                 "运行日志",
                 symbol = LucidSymbol.Document,
                 tint = Color(0xFFFF2D55),
                 onClick = { navigate("logs") },
             )
-        }
-        LucidSection("配置与资源") {
             LucidRow(
                 "规则检索",
                 symbol = LucidSymbol.Search,
                 tint = Color(0xFFAF52DE),
                 onClick = { navigate("rules") },
-            )
-            LucidRow(
-                "资源提供器",
-                symbol = LucidSymbol.Folder,
-                tint = Color(0xFF32ADE6),
-                onClick = { navigate("providers") },
-            )
-            LucidRow(
-                "配置管理",
-                symbol = LucidSymbol.Document,
-                tint = Color(0xFFFFCC00),
-                onClick = { navigate("profiles") },
             )
         }
     }
@@ -389,17 +369,16 @@ fun MoreScreen(navigate: (String) -> Unit) {
             )
             LucidRow("VPN 与网络", symbol = LucidSymbol.Network, onClick = { navigate("network") })
             LucidRow(
-                "分应用代理",
-                symbol = LucidSymbol.Shield,
-                tint = Color(0xFFAF52DE),
-                onClick = { navigate("apps") },
-            )
-            LucidRow(
                 "配置覆写",
                 symbol = LucidSymbol.Document,
                 tint = Color(0xFFFF9500),
                 onClick = { navigate("override") },
             )
+        }
+        LucidSection("配置资源") {
+            LucidRow("资源提供器", symbol = LucidSymbol.Folder, onClick = { navigate("providers") })
+            LucidRow("Geo 数据", symbol = LucidSymbol.Dns, onClick = { navigate("geodata") })
+            LucidRow("加密配置密钥", symbol = LucidSymbol.Shield, onClick = { navigate("keys") })
         }
         LucidSection("支持") {
             LucidRow(

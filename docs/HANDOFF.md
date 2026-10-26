@@ -11,6 +11,8 @@
 - Geo 数据随仓保存，构建校验发布者 SHA-256，不再下载浮动 latest；更新应用时保留用户自行导入的数据。
 - 未导入上游签名密钥；本地独立密钥在 `.secrets/release.p12`，属性在 `signing.properties`，均被 Git 忽略。必须另行离线备份，凭据不得提交。
 
+**推送约束：只有收到明确推送指令后才执行 `git push`；本地开发、验证与提交不自动推送。**
+
 ## 已实现的开发代码
 
 - 统一 Lucid 浅深色组件、矢量图标、首页 / 工具 / 更多、配置、策略、连接、规则、DNS、设置、覆写、文件、日志和关于页。
@@ -21,6 +23,10 @@
 - 首页直接显示单行配置名，长名称省略；使用独立矢量箭头，不添加“当前配置”标签。新增统一短动效与自有猫形信号图标，规范见 UI-DESIGN。
 - 连接与规则分页由 DiagnosticPager 串行管理；刷新保留已加载范围，搜索使旧请求失效。详情与返回列表保留对应状态，后台停止轮询，恢复后重读当前页面。
 - 原生版本信息改为固定来源元数据，避免依赖不存在的子模块 Git 分支。
+- 配置导入改为明确的进度与完成事件，成功返回列表并显示新条目，失败保留输入。手动更新直接在列表执行，并等待服务返回真实终态；`IProfileManager.updateNow` 与自动后台 Worker 的 `update` 调度分开。
+- 统一操作反馈、进行中去重和错误保留。页面数据先在后台读取，再原子发布，禁止在 StateFlow.update 的可重试函数中调用挂起 RPC。
+- 停机时服务从受控的 importedDir 读取配置 / 本地提供器缓存，内部调用 Go 只读预览；不加载代理服务、不发起网络请求。手动策略预选存入 SelectionDao，启动后沿用。
+- 首页保留原有“通用 / 网络 / 覆写”与彩色卡片布局，仅收敛工具 / 更多中的重复入口，见 UI-DESIGN。
 
 ## 本地构建
 
@@ -41,12 +47,12 @@ PowerShell 7 执行：
 ## 已执行验证
 
 - 设计模块、完整应用 Kotlin、x86_64 原生内核、Debug APK 和 AndroidTest APK 构建通过。
-- Go 诊断此前 4 项测试通过，本轮未修改 Go；当前 Kotlin 单元测试 5 项通过（格式化 1 项、分页 4 项）。
-- 当前 MuMu 9 项测试通过：Binder 取消 / 重复回复 2 项，首页与动效 2 项，65 连接分页 1 项，真实生命周期 1 项，配置 / 原生网络 2 项，导航截图 1 项。
-- 关闭 Android 动画时长后的导航与重建连续 3 次通过；结束后恢复原值 0.5。
+- Go 诊断与停机预览共 5 项测试通过；Kotlin 单元测试 6 项通过（格式化 1 项、分页 4 项、诊断响应 1 项）。
+- 当前 MuMu 11 项测试通过：Binder 取消 / 重复回复 2 项，首页与动效 2 项，65 连接分页 1 项，真实生命周期 1 项，配置 / 原生网络 2 项，导入 / 更新 / 编辑保存 / 停机浏览 2 项，导航截图 1 项。
+- 当前版本关闭 Android 动画时长后的导航与重建回归通过；结束后恢复原值 0.5。此前 Binder 修复另有连续 3 次通过记录。
 - 网络用例覆盖 VPN 启动、选择策略、规则检索、DNS / TTL、SOCKS 转发、活动连接、单连接关闭和上下行统计。测试代码不使用真实订阅或外部代理服务器。
-- 六张自动化截图与正常前台首页截图存于 `docs/verification/`。正常首页已确认显示 `Local integration test`，服务已停止。
-- 测试服务与本轮端口映射均已关闭；MuMu、应用、测试 APK 和本地测试配置保留。
+- 六张自动化截图与正常前台首页截图存于 `docs/verification/`。测试结束恢复原活动配置，服务已停止；测试配置保留，不访问真实订阅。
+- 测试服务与本轮端口映射均已关闭；MuMu、应用、测试 APK 和本地测试配置保留。`UI workflow ...`、`UI retry ...` 是本地回归生成的配置，未擅自删除。
 
 ## 验证设备与复现
 
@@ -54,7 +60,7 @@ MuMu 实例 3“开发测试”，ADB `127.0.0.1:16480`，Android 15 / API 35，
 
 复现网络测试需要先启动 `scripts/local-fixture.py`，并为该实例建立 TCP 18080 / 18081 / 13053 的 adb reverse。三个服务只监听主机 127.0.0.1。测试应用需要 VPN 与通知权限。
 
-测试类：`BinderCancellationTest`、`HomeUiTest`、`DiagnosticPagingTest`、`DiagnosticLifecycleTest`、`NativeIntegrationTest`、`NavigationSmokeTest`；通过 `androidx.test.runner.AndroidJUnitRunner` 执行。每次测试前同样设置 TEMP/TMP 为 I 盘。
+测试类：`BinderCancellationTest`、`HomeUiTest`、`DiagnosticPagingTest`、`DiagnosticLifecycleTest`、`NativeIntegrationTest`、`ProfileWorkflowTest`、`NavigationSmokeTest`；通过 `androidx.test.runner.AndroidJUnitRunner` 执行。每次测试前同样设置 TEMP/TMP 为 I 盘。
 
 ```powershell
 $env:TEMP='I:\DevCache\Temp'; $env:TMP=$env:TEMP
@@ -66,7 +72,7 @@ $env:TEMP='I:\DevCache\Temp'; $env:TMP=$env:TEMP
 ## 下一阶段优先事项
 
 1. 扩展长期运行、服务进程死亡及高并发分页压力验证；已有 65 连接分页、取消竞争与前后台恢复回归通过。
-2. 补齐文件重命名、Geo 数据格式校验及高级功能完整映射；实测二维码、外部提供器、覆写保存、日志与加密配置。
+2. 补齐文件重命名、Geo 数据格式校验及高级功能完整映射；导入 / 手动更新 / 编辑保存已有界面回归，继续验证二维码、外部提供器、自动后台更新、覆写保存、日志与加密配置。
 3. 将 UI 参考逐屏对照推进到视觉验收，补平板、横屏、大字体、Android 8 和异常 / 权限拒绝矩阵。
 4. 完成签名 Release、R8/JNI 和其余 ABI 构建与运行验证；不能用 Debug 结果替代。
 5. 形成旧实现、资源、工作流与品牌元数据的精确删除清单；取得授权前不删除。重写隐私 / 贡献等尚未迁移的文档。

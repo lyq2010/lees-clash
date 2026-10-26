@@ -50,7 +50,12 @@ class HTTP(http.server.BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        if self.path.startswith("/config"):
+        if self.path.startswith("/config-slow"):
+            time.sleep(1.5)
+            data = CONFIG.encode()
+        elif self.path.startswith("/config-invalid"):
+            data = b"proxies: [invalid: yaml"
+        elif self.path.startswith("/config"):
             data = CONFIG.encode()
         elif self.path == "/generate_204":
             self.send_response(204)

@@ -12,7 +12,7 @@
   },
   "apk": {
     "path": "app/build/intermediates/apk/alpha/debug/lees-clash-0.1.0-alpha-x86_64-debug.apk",
-    "sha256": "4ee00d05276dd0075f275c0a37b4a14887b26c559aebeebbddc864bb838f4fba",
+    "sha256": "9fddddf8aa925be311e0e76e888383dd737a8c03c4c3176972ce2050b1dc602b",
     "testOnly": true
   },
   "checks": [
@@ -23,18 +23,19 @@
     {
       "name": "app Debug APK + AndroidTest APK build",
       "status": "passed",
-      "log": "I:/DevCache/lees-clash-binder-fix-build.log"
+      "log": "I:/DevCache/lees-clash-home-restored-build.log"
     },
     {
       "name": "Kotlin unit tests",
       "status": "passed",
-      "tests": 5
+      "tests": 6,
+      "evidence": "docs/verification/unit-tests.json"
     },
     {
-      "name": "Go diagnostics",
+      "name": "Go diagnostics and offline profile preview",
       "status": "passed",
-      "tests": 4,
-      "log": "I:/DevCache/lees-clash-go-tests.log"
+      "tests": 5,
+      "log": "I:/DevCache/lees-clash-offline-go-tests.log"
     },
     {
       "name": "NativeIntegrationTest.prepareLocalProfile",
@@ -72,7 +73,7 @@
       "status": "not_run"
     },
     {
-      "name": "Android 8 / tablet / large fonts / cellular switching",
+      "name": "Android 8 / tablet / full-page large fonts / cellular switching",
       "status": "not_run"
     },
     {
@@ -102,9 +103,25 @@
     {
       "name": "Navigation with animator_duration_scale=0",
       "status": "passed",
-      "runs": 3,
+      "runs": 1,
       "originalScaleRestored": 0.5,
       "evidence": "docs/verification/no-animation.txt"
+    },
+    {
+      "name": "ProfileWorkflowTest",
+      "status": "passed",
+      "tests": 2,
+      "evidence": "docs/verification/profile-workflow.txt",
+      "coverage": [
+        "import progress and duplicate prevention",
+        "successful import returns to list",
+        "failed import retry",
+        "inline profile update",
+        "save edited profile",
+        "offline groups and rules",
+        "persistent manual preselection",
+        "entry deduplication"
+      ]
     }
   ],
   "cleanup": {
@@ -116,11 +133,13 @@
       13053
     ],
     "testProfile": "retained",
-    "sourceFilesDeleted": false
+    "sourceFilesDeleted": false,
+    "originalProfileSelection": "restored"
   },
   "knownIssues": [
     "All legacy files remain pending an approved precise cleanup inventory.",
     "Advanced configuration, file operations, QR and external provider flows are not fully covered by end-to-end tests.",
-    "Long-duration load and service-process-death stress testing remain incomplete."
+    "Long-duration load and service-process-death stress testing remain incomplete.",
+    "Offline preview of all mihomo extensions and large provider combinations is not fully covered."
   ]
 }

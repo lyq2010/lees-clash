@@ -47,7 +47,9 @@ open class LucidActivity : ComponentActivity() {
             ->
             val id = exportTarget
             if (uri != null && id != null)
-                model.task { model.repository.files.copyDocument(uri, id) }
+                model.task(progress = "正在导出文件", success = "文件已导出") {
+                    model.repository.files.copyDocument(uri, id)
+                }
         }
     private val qr =
         registerForActivityResult(ScanQRCode()) { result ->
@@ -71,13 +73,14 @@ open class LucidActivity : ComponentActivity() {
                                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
                             )
                         }
-                    model.task {
-                        model.repository.importUrl(
-                            result.data?.getStringExtra(Intents.EXTRA_NAME) ?: "外部配置",
-                            uri.toString(),
-                            null,
-                        )
-                        model.changed()
+                    model.task(progress = "正在导入配置", success = "配置已添加") {
+                        val id =
+                            model.repository.importUrl(
+                                result.data?.getStringExtra(Intents.EXTRA_NAME) ?: "外部配置",
+                                uri.toString(),
+                                null,
+                            )
+                        model.imported(id)
                     }
                 }
             }
@@ -119,13 +122,21 @@ open class LucidActivity : ComponentActivity() {
                     geoTarget = name
                     filePicker.launch(arrayOf("*/*"))
                 },
-                ::finish,
+                ::finishWithFeedback,
             )
         }
     }
 
     private fun showRoute(route: String) {
-        render(route)
+        model.openRoute(route)
+    }
+
+    private fun finishWithFeedback() {
+        model.state.value.notice?.let {
+            android.widget.Toast.makeText(this, it.text, android.widget.Toast.LENGTH_SHORT).show()
+            model.clearNotice(it.id)
+        }
+        finish()
     }
 
     override fun onStart() {
@@ -173,7 +184,7 @@ open class LucidActivity : ComponentActivity() {
         else value
 
     private fun importDocument(uri: Uri) {
-        model.task {
+        model.task(progress = "正在导入文件", success = "文件已导入") {
             val geo = geoTarget
             val folder = importTarget
             when {
@@ -196,7 +207,10 @@ open class LucidActivity : ComponentActivity() {
                         }
                     }
                 }
-                else -> model.repository.importFile(displayName(uri).substringBeforeLast('.'), uri)
+                else ->
+                    model.imported(
+                        model.repository.importFile(displayName(uri).substringBeforeLast('.'), uri)
+                    )
             }
             geoTarget = null
             importTarget = null

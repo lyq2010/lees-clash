@@ -64,6 +64,7 @@ fun LucidHeader(
     title: String,
     back: (() -> Unit)? = null,
     action: String? = null,
+    actionEnabled: Boolean = true,
     onAction: () -> Unit = {},
 ) {
     val c = LocalLucidColors.current
@@ -94,9 +95,9 @@ fun LucidHeader(
                 action,
                 Modifier.heightIn(min = 48.dp)
                     .wrapContentHeight()
-                    .lucidClickable(onClick = onAction)
+                    .lucidClickable(enabled = actionEnabled, onClick = onAction)
                     .padding(horizontal = 12.dp, vertical = 12.dp),
-                color = c.blue,
+                color = c.blue.copy(alpha = if (actionEnabled) 1f else .4f),
                 fontSize = 17.sp,
             )
     }
@@ -141,6 +142,7 @@ fun LucidRow(
     tint: Color = Color(0xFF007AFF),
     selected: Boolean? = null,
     destructive: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
     onDetail: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
@@ -206,6 +208,7 @@ fun LucidRow(
                 Spacer(Modifier.width(10.dp))
                 LucidIcon(LucidSymbol.Chevron, c.secondary.copy(alpha = .6f), Modifier.size(15.dp))
             }
+            trailing?.invoke()
             if (onDetail != null)
                 Box(
                     Modifier.size(48.dp)
@@ -213,7 +216,7 @@ fun LucidRow(
                         .lucidClickable(onClick = onDetail),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("ⓘ", color = c.blue, fontSize = 22.sp)
+                    LucidIcon(LucidSymbol.Edit, c.blue, Modifier.size(22.dp))
                 }
         }
         Box(
@@ -234,6 +237,7 @@ fun LucidField(
     multiline: Boolean = false,
     secret: Boolean = false,
     keyboard: KeyboardType = KeyboardType.Text,
+    enabled: Boolean = true,
 ) {
     val c = LocalLucidColors.current
     Column(Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 12.dp)) {
@@ -242,7 +246,8 @@ fun LucidField(
         BasicTextField(
             value,
             onValueChange,
-            Modifier.fillMaxWidth().heightIn(min = if (multiline) 130.dp else 28.dp),
+            Modifier.fillMaxWidth().heightIn(min = if (multiline) 130.dp else 28.dp).semantics { if (label.isNotBlank()) contentDescription = label },
+            enabled = enabled,
             textStyle =
                 TextStyle(
                     color = c.text,

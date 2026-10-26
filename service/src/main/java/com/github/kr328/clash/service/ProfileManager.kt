@@ -131,6 +131,11 @@ class ProfileManager(private val context: Context) : IProfileManager,
         scheduleUpdate(uuid, true)
     }
 
+    override suspend fun updateNow(uuid: UUID, callback: IFetchObserver?) {
+        ProfileProcessor.update(context, uuid, callback)
+        scheduleUpdate(uuid, false)
+    }
+
     override suspend fun commit(uuid: UUID, callback: IFetchObserver?) {
         ProfileProcessor.apply(context, uuid, callback)
 

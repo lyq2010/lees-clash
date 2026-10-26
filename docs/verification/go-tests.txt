@@ -1,1 +1,2 @@
-ok  	lees/native/diagnostics	0.463s
+ok  	lees/native/preview	0.695s
+ok  	lees/native/diagnostics	0.543s

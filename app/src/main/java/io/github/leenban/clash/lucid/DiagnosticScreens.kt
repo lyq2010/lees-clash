@@ -127,10 +127,16 @@ fun ConnectionScreen(
 @Composable
 fun RulesScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        LucidHeader("代理规则", back, "刷新") { vm.changed() }
+        LucidHeader("代理规则", back, "刷新") { vm.reloadPage() }
+        if (!state.running)
+            Text(
+                "所选配置的规则 · 服务已停止",
+                Modifier.padding(horizontal = 24.dp),
+                color = LocalLucidColors.current.secondary,
+            )
         LucidSearch(state.ruleQuery, vm::search, "规则类型、内容或目标策略")
         Text(
-            "${state.rules.total} 条生效规则",
+            "${state.rules.total} 条${if (state.running) "生效" else "配置"}规则",
             Modifier.padding(horizontal = 24.dp, vertical = 7.dp),
             color = LocalLucidColors.current.secondary,
             fontSize = 12.sp,

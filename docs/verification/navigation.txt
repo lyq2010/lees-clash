@@ -1,5 +1,5 @@
 io.github.leenban.clash.lucid.NavigationSmokeTest:.
 
-Time: 3.352
+Time: 3.549
 
 OK (1 test)

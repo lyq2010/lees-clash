@@ -22,6 +22,7 @@ class DiagnosticPagingTest {
     fun livePagesSearchAndEndedDetails() = runBlocking {
         val context = compose.activity.applicationContext
         val repository = ClientRepository(context)
+        val original = repository.active()
         lateinit var vm: ClientViewModel
         compose.activityRule.scenario.onActivity {
             vm = ViewModelProvider(it)[ClientViewModel::class.java]
@@ -53,6 +54,7 @@ class DiagnosticPagingTest {
             repository.select(profile)
             assertNull("VPN permission is required", context.startClashService())
             await("VPN running") { vm.state.value.running }
+            awaitRunningProfile(context)
             withContext(Dispatchers.IO) {
                 repeat(65) {
                     val socket = Socket("127.0.0.1", 17890)
@@ -113,6 +115,7 @@ class DiagnosticPagingTest {
         } finally {
             sockets.forEach { runCatching { it.close() } }
             context.stopClashService()
+            withContext(NonCancellable) { repository.restoreSelection(context, original) }
         }
     }
 }

@@ -9,6 +9,7 @@ import io.github.leenban.clash.core.model.*
 import io.github.leenban.clash.design.store.UiStore
 import io.github.leenban.clash.remote.FilesClient
 import io.github.leenban.clash.service.model.Profile
+import io.github.leenban.clash.service.remote.IFetchObserver
 import io.github.leenban.clash.service.store.ServiceStore
 import io.github.leenban.clash.util.withClash
 import io.github.leenban.clash.util.withProfile
@@ -55,7 +56,7 @@ class ClientRepository(val context: Context) {
         updateProvider(provider.type, provider.name)
     }
 
-    suspend fun reload(profile: Profile) = withProfile { update(profile.uuid) }
+    suspend fun reload(profile: Profile) = withProfile { updateNow(profile.uuid) }
 
     suspend fun delete(profile: Profile) = withProfile { delete(profile.uuid) }
 
@@ -102,16 +103,22 @@ class ClientRepository(val context: Context) {
         return withClash { queryDiagnostics(operation, payload) }
     }
 
-    suspend fun importUrl(name: String, url: String, secret: String?): UUID = withProfile {
+    suspend fun importUrl(
+        name: String,
+        url: String,
+        secret: String?,
+        progress: (FetchStatus) -> Unit = {},
+    ): UUID = withProfile {
+        val source = url.trim()
         require(name.isNotBlank()) { "请输入配置名称" }
-        require(Uri.parse(url).scheme in listOf("https", "http", "content")) {
+        require(Uri.parse(source).scheme in listOf("https", "http", "content")) {
             "请输入 HTTP、HTTPS 或内容提供器链接"
         }
         val type =
-            if (Uri.parse(url).scheme == "content") Profile.Type.External else Profile.Type.Url
-        val uuid = create(type, name.trim(), url.trim(), secret?.takeIf { it.isNotBlank() })
+            if (Uri.parse(source).scheme == "content") Profile.Type.External else Profile.Type.Url
+        val uuid = create(type, name.trim(), source, secret?.takeIf { it.isNotBlank() })
         try {
-            commit(uuid)
+            commit(uuid, IFetchObserver { progress(it) })
             queryByUUID(uuid)?.let { if (queryActive() == null) setActive(it) }
         } finally {
             release(uuid)

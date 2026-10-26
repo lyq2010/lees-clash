@@ -13,10 +13,23 @@ data class AppChoice(
     val selected: Boolean,
 )
 
+data class ClientNotice(val id: Long, val text: String)
+
+data class ClientNavigation(val id: Long, val route: String)
+
 data class ClientState(
     val running: Boolean = false,
     val starting: Boolean = false,
     val busy: Boolean = false,
+    val pageLoading: Boolean = false,
+    val operation: String? = null,
+    val notice: ClientNotice? = null,
+    val navigation: ClientNavigation? = null,
+    val importing: Boolean = false,
+    val importStatus: String = "",
+    val importedProfile: java.util.UUID? = null,
+    val recentProfile: java.util.UUID? = null,
+    val updatingProfiles: Set<java.util.UUID> = emptySet(),
     val active: Profile? = null,
     val profiles: List<Profile> = emptyList(),
     val mode: TunnelState.Mode = TunnelState.Mode.Rule,

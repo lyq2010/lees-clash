@@ -197,7 +197,7 @@ object ProfileProcessor {
                     store.activeProfile = uuid
 
                     context.sendProfileChanged(uuid)
-                }
+                } else throw IllegalStateException("配置尚未完成导入或已被删除")
             }
         }
     }

@@ -56,10 +56,6 @@ func (s *sortableProxyList) Swap(i, j int) {
 func QueryProxyGroupNames(excludeNotSelectable bool) []string {
 	mode := tunnel.Mode()
 
-	if mode == tunnel.Direct {
-		return []string{}
-	}
-
 	global := tunnel.Proxies()["GLOBAL"].Adapter().(outboundgroup.ProxyGroup)
 	proxies := global.Providers()[0].Proxies()
 	result := make([]string, 0, len(proxies)+1)
@@ -156,6 +152,7 @@ func PatchSelector(selector, name string) bool {
 
 	if err := s.Set(name); err != nil {
 		log.Warnln("Patch selector `%s`: %s", selector, err.Error())
+		return false
 	}
 
 	log.Infoln("Patch selector %s -> %s", selector, name)

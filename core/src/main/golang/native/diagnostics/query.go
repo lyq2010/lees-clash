@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"lees/native/preview"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ type Request struct {
 	ID         string `json:"id"`
 	Domain     string `json:"domain"`
 	RecordType string `json:"recordType"`
+	Path       string `json:"path"`
 }
 
 type Page[T any] struct {
@@ -110,6 +112,43 @@ func Query(operation, payload string) string {
 	}
 	var result any
 	switch operation {
+	case "profileGroupNames", "profileGroup", "profileRules", "profileMode", "profileProviders":
+		profile, err := preview.Read(request.Path)
+		if err != nil {
+			return failure(err.Error())
+		}
+		switch operation {
+		case "profileProviders":
+			result = profile.Providers
+		case "profileMode":
+			result = map[string]string{"mode": profile.Mode}
+		case "profileGroupNames":
+			names := []string{}
+			for _, group := range profile.Groups {
+				if request.Query != "select" || group.Group.Type == "select" {
+					names = append(names, group.Name)
+				}
+			}
+			result = names
+		case "profileGroup":
+			for _, group := range profile.Groups {
+				if group.Name == request.ID {
+					result = group.Group
+					break
+				}
+			}
+			if result == nil {
+				return failure("所选配置中没有该策略组")
+			}
+		case "profileRules":
+			items := []preview.Rule{}
+			for _, rule := range profile.Rules {
+				if matches(request.Query, rule.Type, rule.Payload, rule.Proxy) {
+					items = append(items, rule)
+				}
+			}
+			result = paginate(items, request.Offset, request.Limit)
+		}
 	case "connections":
 		items := make([]Connection, 0)
 		statistic.DefaultManager.Range(func(tracker statistic.Tracker) bool {
@@ -172,7 +211,7 @@ func Query(operation, payload string) string {
 	if err != nil {
 		return failure(err.Error())
 	}
-	if len(encoded) > maxResponse {
+	if len(encoded) > maxResponse && operation != "profileGroup" {
 		return failure("结果过大，请缩小查询范围或分页数量")
 	}
 	return string(encoded)

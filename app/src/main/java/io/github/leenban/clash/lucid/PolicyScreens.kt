@@ -18,6 +18,7 @@ fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: () -> Uni
     var query by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("代理策略", back)
+        if (!state.running) LucidSection(footer = "所选配置的策略组；手动选择会保存，动态策略结果在启动后显示。") {}
         LucidSearch(query, { query = it }, "搜索策略组")
         LazyColumn {
             item {
@@ -48,10 +49,19 @@ fun NodesScreen(name: String, state: ClientState, vm: ClientViewModel, back: () 
     val group = state.selectedGroup
     val selectable = group?.type?.lowercase() in listOf("selector", "select")
     Column(Modifier.fillMaxSize()) {
-        LucidHeader(name, back, "测速") { vm.health(name) }
+        LucidHeader(
+            name,
+            back,
+            if (state.running) "测速" else "启动后测速",
+            actionEnabled = state.running && !state.busy,
+        ) {
+            vm.health(name)
+        }
         LucidSearch(query, { query = it }, "搜索节点")
         LucidSection(
-            footer = if (selectable) "点按节点切换线路，选择会自动保存。" else "该策略组由内核自动选择线路，当前选择会随网络状态更新。"
+            footer =
+                if (!state.running) "当前服务已停止。这里显示配置与已缓存节点；可预选手动策略，启动后生效。"
+                else if (selectable) "点按节点切换线路，选择会自动保存。" else "该策略组由内核自动选择线路，当前选择会随网络状态更新。"
         ) {
             LucidRow(
                 "排序",
@@ -83,6 +93,7 @@ fun NodesScreen(name: String, state: ClientState, vm: ClientViewModel, back: () 
                         subtitle = proxy.subtitle.ifBlank { proxy.type },
                         value =
                             when {
+                                !state.running -> "未运行"
                                 proxy.delay <= 0 -> "未测试"
                                 proxy.delay >= 65535 -> "超时"
                                 else -> "${proxy.delay} ms"
@@ -103,20 +114,25 @@ fun NodesScreen(name: String, state: ClientState, vm: ClientViewModel, back: () 
 @Composable
 fun ProvidersScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        LucidHeader("资源提供器", back, "刷新") { vm.changed() }
+        LucidHeader("资源提供器", back, "刷新") { vm.reloadPage() }
         LazyColumn {
             item {
-                LucidSection("配置中的资源") {
+                LucidSection(
+                    "配置中的资源",
+                    footer = if (!state.running) "服务已停止，显示所选配置的资源；启动后可以单独更新。" else null,
+                ) {
                     state.providers.forEach { provider ->
                         LucidRow(
                             provider.name,
                             subtitle = "${provider.type} · ${provider.vehicleType}",
-                            value = "更新",
+                            value = if (state.running) "更新" else "启动后更新",
                             onClick = {
-                                vm.task {
-                                    vm.repository.update(provider)
-                                    vm.changed()
-                                }
+                                if (!state.running) vm.error("启动服务后可以单独更新资源；也可从配置列表更新订阅")
+                                else
+                                    vm.task(progress = "正在更新资源", success = "资源更新完成") {
+                                        vm.repository.update(provider)
+                                        vm.changed()
+                                    }
                             },
                         )
                     }

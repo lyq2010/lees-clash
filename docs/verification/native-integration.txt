@@ -1,5 +1,6 @@
+
 io.github.leenban.clash.lucid.NativeIntegrationTest:..
 
-Time: 2.787
+Time: 2.841
 
 OK (2 tests)

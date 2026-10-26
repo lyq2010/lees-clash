@@ -1,0 +1,20 @@
+[
+  {
+    "name": "io.github.leenban.clash.lucid.ClientFormattingTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "name": "io.github.leenban.clash.lucid.DiagnosticPagerTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "name": "io.github.leenban.clash.lucid.DiagnosticResponseTest",
+    "tests": 1,
+    "failures": 0,
+    "errors": 0
+  }
+]

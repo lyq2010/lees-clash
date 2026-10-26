@@ -4,10 +4,14 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import io.github.leenban.clash.design.lucid.*
 import io.github.leenban.clash.service.model.Profile
 
@@ -18,46 +22,87 @@ fun ProfilesScreen(
     navigate: (String) -> Unit,
     back: () -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    var revealed by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.recentProfile, state.profiles.size) {
+        val recent = state.recentProfile?.toString()
+        if (
+            recent != null &&
+                recent != revealed &&
+                state.profiles.any { it.uuid == state.recentProfile }
+        ) {
+            listState.scrollToItem(0)
+            revealed = recent
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("配置", back, "导入") { navigate("import") }
-        LazyColumn {
+        LazyColumn(state = listState) {
             item {
                 LucidSection("配置文件") {
-                    state.profiles.forEach { profile ->
-                        LucidRow(
-                            profile.name,
-                            subtitle =
-                                when (profile.type) {
-                                    Profile.Type.Url -> "订阅配置"
-                                    Profile.Type.File -> "本地配置"
-                                    else -> "外部配置"
+                    state.profiles
+                        .sortedByDescending { it.uuid == state.recentProfile }
+                        .forEach { profile ->
+                            LucidRow(
+                                profile.name,
+                                subtitle =
+                                    if (!profile.imported) "未完成导入"
+                                    else
+                                        when (profile.type) {
+                                            Profile.Type.Url -> "订阅配置"
+                                            Profile.Type.File -> "本地配置"
+                                            else -> "外部配置"
+                                        },
+                                value =
+                                    if (profile.uuid in state.updatingProfiles) "更新中"
+                                    else if (profile.active) "使用中"
+                                    else if (profile.uuid == state.recentProfile) "新添加" else "",
+                                selected = profile.active,
+                                trailing = {
+                                    if (profile.type != Profile.Type.File && profile.imported) {
+                                        val updating = profile.uuid in state.updatingProfiles
+                                        Box(
+                                            Modifier.size(48.dp)
+                                                .semantics {
+                                                    contentDescription = "更新${profile.name}"
+                                                }
+                                                .lucidClickable(enabled = !updating) {
+                                                    vm.updateProfile(profile)
+                                                },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            LucidIcon(
+                                                LucidSymbol.Refresh,
+                                                LocalLucidColors.current.blue.copy(
+                                                    alpha = if (updating) .35f else 1f
+                                                ),
+                                                Modifier.size(22.dp),
+                                            )
+                                        }
+                                    }
                                 },
-                            value = if (profile.active) "使用中" else "",
-                            selected = profile.active,
-                            onDetail = { navigate("profile/${profile.uuid}") },
-                            onClick = {
-                                vm.task {
-                                    vm.repository.select(profile)
-                                    vm.changed()
-                                }
-                            },
-                        )
-                    }
+                                onDetail = { navigate("profile/${profile.uuid}") },
+                                onClick = {
+                                    if (!profile.imported) vm.error("该配置尚未完成导入，请先编辑并保存")
+                                    else
+                                        vm.task(progress = "正在切换配置", success = "配置已切换") {
+                                            vm.repository.select(profile)
+                                            vm.changed()
+                                        }
+                                },
+                            )
+                        }
                 }
             }
             if (state.profiles.isEmpty())
-                item { LucidEmpty("尚未添加配置", "从链接、文件或二维码导入 Clash YAML 配置。") }
-            item {
-                LucidSection("导入") {
-                    LucidRow("添加配置", symbol = LucidSymbol.Add, onClick = { navigate("import") })
-                }
-            }
+                item { LucidEmpty("尚未添加配置", "点按右上角“导入”，从链接、文件或二维码添加 Clash YAML 配置。") }
         }
     }
 }
 
 @Composable
 fun ImportScreen(
+    state: ClientState,
     vm: ClientViewModel,
     back: () -> Unit,
     importFile: () -> Unit,
@@ -69,31 +114,52 @@ fun ImportScreen(
     var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
     var secret by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize()) {
-        LucidHeader("导入配置", back, "完成") {
-            vm.task(done = back) {
-                vm.repository.importUrl(name.ifBlank { "订阅配置" }, url, secret)
-                vm.changed()
-            }
+        LucidHeader(
+            "导入配置",
+            back,
+            if (state.importing) "导入中" else "完成",
+            actionEnabled = !state.importing,
+        ) {
+            vm.importProfile(name, url, secret)
         }
         LazyColumn {
             item {
                 LucidSection("从 URL 下载") {
-                    LucidField("名称", name, { name = it }, "订阅配置")
+                    LucidField("名称", name, { name = it }, "订阅配置", enabled = !state.importing)
                     LucidField(
                         "链接",
                         url,
                         { url = it },
                         "https://example.com/config.yaml",
                         keyboard = KeyboardType.Uri,
+                        enabled = !state.importing,
                     )
-                    LucidField("age 私钥（可选）", secret, { secret = it }, secret = true)
+                    LucidField(
+                        "age 私钥（可选）",
+                        secret,
+                        { secret = it },
+                        secret = true,
+                        enabled = !state.importing,
+                    )
                 }
             }
             item {
                 LucidSection("其他方式") {
-                    LucidRow("从文件导入", symbol = LucidSymbol.Document, onClick = importFile)
-                    LucidRow("扫描二维码", symbol = LucidSymbol.Search, onClick = scan)
-                    LucidRow("来自其他应用", symbol = LucidSymbol.Folder, onClick = external)
+                    LucidRow(
+                        "从文件导入",
+                        symbol = LucidSymbol.Document,
+                        onClick = if (state.importing) null else importFile,
+                    )
+                    LucidRow(
+                        "扫描二维码",
+                        symbol = LucidSymbol.Search,
+                        onClick = if (state.importing) null else scan,
+                    )
+                    LucidRow(
+                        "来自其他应用",
+                        symbol = LucidSymbol.Folder,
+                        onClick = if (state.importing) null else external,
+                    )
                 }
             }
         }
@@ -152,8 +218,8 @@ fun ProfileScreen(
     }
     BackHandler(onBack = leave)
     Column(Modifier.fillMaxSize()) {
-        LucidHeader("编辑配置", leave, "完成") {
-            vm.task(done = back) {
+        LucidHeader("编辑配置", leave, "完成", actionEnabled = !state.busy) {
+            vm.task(done = back, progress = "正在保存配置", success = "配置已保存") {
                 vm.repository.saveProfile(
                     profile,
                     name,
@@ -189,11 +255,10 @@ fun ProfileScreen(
                 }
             item {
                 LucidSection("操作") {
-                    LucidRow("立即更新", onClick = { vm.task { vm.repository.reload(profile) } })
                     LucidRow(
                         "克隆为本地配置",
                         onClick = {
-                            vm.task(done = back) {
+                            vm.task(done = back, progress = "正在克隆配置", success = "已克隆为本地配置") {
                                 vm.repository.cloneProfile(profile)
                                 vm.changed()
                             }
@@ -212,7 +277,7 @@ fun ProfileScreen(
                         destructive = true,
                         onClick = {
                             confirm("删除配置“${profile.name}”？此操作无法撤销。") {
-                                vm.task(done = back) {
+                                vm.task(done = back, progress = "正在删除配置", success = "配置已删除") {
                                     vm.repository.delete(profile)
                                     vm.changed()
                                 }
@@ -243,10 +308,11 @@ fun FilesScreen(
             if (editing == null) "配置与资源文件" else "编辑文件",
             back,
             if (editing == null) "导入" else "保存",
+            actionEnabled = !state.busy,
         ) {
             if (editing == null) importFile(id)
             else
-                vm.task {
+                vm.task(progress = "正在保存文件", success = "文件已保存") {
                     vm.repository.writeDocument(editing!!, text)
                     val uuid = java.util.UUID.fromString(id.substringBefore('/'))
                     io.github.leenban.clash.util.withProfile {
@@ -297,7 +363,7 @@ fun FilesScreen(
                                     destructive = true,
                                     onClick = {
                                         confirm("删除资源文件“${file.name}”？") {
-                                            vm.task {
+                                            vm.task(progress = "正在删除文件", success = "文件已删除") {
                                                 vm.repository.files.deleteDocument(documentId)
                                                 val uuid =
                                                     java.util.UUID.fromString(
