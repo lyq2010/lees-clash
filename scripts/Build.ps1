@@ -23,7 +23,9 @@ try {
     $sdkPath = $SdkRoot.Replace('\','/')
     $ndkPath = $env:ANDROID_NDK_HOME.Replace('\','/')
     @("sdk.dir=$sdkPath", "ndk.dir=$ndkPath") | Set-Content -LiteralPath local.properties -Encoding utf8
-    $arguments = @('--no-daemon', '--project-cache-dir=I:\DevCache\lees-clash-project-cache') + $Tasks
+    $arguments = @('--no-daemon', '--project-cache-dir=I:\DevCache\lees-clash-project-cache',
+        '-Pkotlin.project.persistent.dir=I:/DevCache/lees-clash-kotlin',
+        '-Pkotlin.project.persistent.dir.gradle.disableWrite=true') + $Tasks
     if ($Abi -ne 'all') { $arguments += "-Pandroid.injected.build.abi=$Abi" }
     & .\gradlew.bat @arguments
     if ($LASTEXITCODE -ne 0) { throw "Gradle failed: $LASTEXITCODE" }

@@ -10,8 +10,11 @@ import kotlinx.coroutines.withTimeout
 // Restore only the active selection. Test profiles and user data are not deleted.
 internal suspend fun ClientRepository.restoreSelection(context: Context, original: Profile?) {
     context.stopClashService()
-    withTimeout(10000) { while (StatusClient(context).currentProfile() != null) delay(100) }
-    if (original != null) select(original)
+    try {
+        withTimeout(10000) { while (StatusClient(context).currentProfile() != null) delay(100) }
+    } finally {
+        if (original != null) select(original)
+    }
 }
 
 internal suspend fun awaitRunningProfile(context: Context) {

@@ -65,6 +65,24 @@ data class ConfigurationOverride(
     @SerialName("tcp-concurrent")
     var tcpConcurrent: Boolean? = null,
 
+    @SerialName("global-ua")
+    var globalUserAgent: String? = null,
+
+    @SerialName("global-client-fingerprint")
+    var globalClientFingerprint: String? = null,
+
+    @SerialName("keep-alive-idle")
+    var keepAliveIdle: Int? = null,
+
+    @SerialName("keep-alive-interval")
+    var keepAliveInterval: Int? = null,
+
+    @SerialName("disable-keep-alive")
+    var disableKeepAlive: Boolean? = null,
+
+    @SerialName("ntp")
+    val ntp: Ntp = Ntp(),
+
     @SerialName("find-process-mode")
     var findProcessMode: FindProcessMode? = null,
 
@@ -80,6 +98,16 @@ data class ConfigurationOverride(
     @SerialName("geox-url")
     val geoxurl: GeoXUrl = GeoXUrl(),
 ) : Parcelable {
+    @Serializable
+    data class Ntp(
+        @SerialName("enable") var enable: Boolean? = null,
+        @SerialName("server") var server: String? = null,
+        @SerialName("port") var port: Int? = null,
+        @SerialName("interval") var interval: Int? = null,
+        @SerialName("dialer-proxy") var dialerProxy: String? = null,
+        @SerialName("write-to-system") var writeToSystem: Boolean? = null,
+    )
+
     @Serializable
     data class Dns(
         @SerialName("enable")
@@ -120,6 +148,18 @@ data class ConfigurationOverride(
 
         @SerialName("nameserver-policy")
         var nameserverPolicy: Map<String, String>? = null,
+
+        @SerialName("respect-rules")
+        var respectRules: Boolean? = null,
+
+        @SerialName("proxy-server-nameserver")
+        var proxyServerNameserver: List<String>? = null,
+
+        @SerialName("direct-nameserver")
+        var directNameserver: List<String>? = null,
+
+        @SerialName("direct-nameserver-follow-policy")
+        var directNameserverFollowPolicy: Boolean? = null,
     )
 
     @Serializable

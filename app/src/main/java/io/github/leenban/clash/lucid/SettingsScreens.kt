@@ -112,6 +112,7 @@ fun NetworkScreen(
                 }
                 item {
                     LucidSection("分应用代理") {
+                        LucidRow("按需网络", onClick = { navigate("on-demand") })
                         LucidRow(
                             "代理模式",
                             value =

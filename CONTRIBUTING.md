@@ -1,14 +1,9 @@
-## Contributing to Clash for Android
+# 参与 Lee’s Clash 开发
 
-#### Code Style
+本仓为私有开发与发版仓，Actions 仅允许 GitHub 官方动作；本地开发与提交不等于授权推送或发布。
 
-Please use `Android Studio` or `Intellij IDEA` to open the project and use the project code style profile.
+应用层使用 Kotlin / Jetpack Compose，内核桥接使用 Go 和少量 C/JNI。沿用现有代码风格，保持首页整体布局和 Lucid 设计系统。每项行为改动需要可复现的验证；测试使用本机 fixture，不在日志、截图或仓库中保存订阅密钥、真实配置正文或签名凭据。
 
-`File` -> `Settings` -> `Editor` -> `Code Style` -> `C/C++ and Kotlin` -> `Scheme` -> `Project`
+Windows 构建使用 PowerShell 7 与 `scripts/Build.ps1`，开发缓存放在 `I:\DevCache`。中文 CHANGELOG、开发矩阵、交接和验证记录随改动更新。尚未验证的项目必须标明，不用 Debug、模拟器或单项测试替代其他验收条件。
 
-
-
-#### License
-
-Contributing to Clash for Android that assumes you allow code to be merged into closed-source branch of Clash for Android. Other terms follow the [GPLv3](https://www.gnu.org/licenses/gpl-3.0.html)
-
+保留 GPL-3.0、NOTICE、原有版权与来源记录。新依赖须记录来源、固定版本和许可；自有图标与源码不冒称其他产品的原始资产。删除旧实现前先列出精确范围并取得授权。

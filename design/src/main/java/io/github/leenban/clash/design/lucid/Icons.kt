@@ -54,14 +54,21 @@ fun LucidIcon(symbol: LucidSymbol, color: Color, modifier: Modifier = Modifier) 
                 LucidSymbol.Refresh -> {
                     drawArc(
                         color,
-                        -55f,
-                        295f,
+                        45f,
+                        270f,
                         false,
                         Offset(4f, 4f),
                         Size(16f, 16f),
-                        style = Stroke(1.8f, cap = StrokeCap.Round),
+                        style = Stroke(1.6f, cap = StrokeCap.Round),
                     )
-                    path(15f, 3f, 20f, 5f, 18f, 10f)
+                    val arrow =
+                        Path().apply {
+                            moveTo(18.93f, 8f)
+                            lineTo(15.37f, 5.44f)
+                            lineTo(18.49f, 3.64f)
+                            close()
+                        }
+                    drawPath(arrow, color)
                 }
                 LucidSymbol.Edit -> {
                     path(4f, 16f, 15f, 5f, 19f, 9f, 8f, 20f, 4f, 20f, 4f, 16f)

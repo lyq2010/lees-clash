@@ -9,6 +9,7 @@ import (
 	"github.com/dlclark/regexp2"
 
 	"lees/native/common"
+	"lees/native/extension"
 
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/config"
@@ -18,6 +19,7 @@ import (
 
 var processors = []processor{
 	patchExternalController, // must before patchOverride, so we only apply ExternalController in Override settings
+	extension.Apply,
 	patchOverride,
 	patchGeneral,
 	patchProfile,

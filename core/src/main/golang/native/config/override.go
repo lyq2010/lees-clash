@@ -30,6 +30,7 @@ func ReadOverride(slot OverrideSlot) string {
 		if err != nil {
 			return defaultPersistOverride
 		}
+		defer file.Close()
 
 		buf, err := io.ReadAll(file)
 		if err != nil {
@@ -51,6 +52,7 @@ func WriteOverride(slot OverrideSlot, content string) {
 		if err != nil {
 			return
 		}
+		defer file.Close()
 
 		_, err = file.Write([]byte(content))
 	case OverrideSlotSession:

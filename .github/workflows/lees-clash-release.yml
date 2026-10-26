@@ -1,0 +1,151 @@
+name: Lee's Clash private release
+"on":
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 私有源码版本标签，例如 v0.1.0（补丁号达到 50 时进位）
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: lees-clash-release
+  cancel-in-progress: false
+env:
+  TAG: ${{ inputs.tag }}
+  RELEASE_REPOSITORY: ${{ github.repository }}
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Validate tag input
+        run: '[[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require private source and main ancestry
+        run: |
+          test "$(gh repo view --json visibility --jq .visibility)" = PRIVATE
+          git merge-base --is-ancestor HEAD origin/main
+      - name: Recognize immutable release for mirror retry
+        id: existing
+        run: python3 -B tools/release/published.py
+      - name: Test release helpers
+        run: python3 -B -m unittest discover -s tools/release/tests -v
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        if: steps.existing.outputs.published != 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Restore independent Clash signing
+        if: steps.existing.outputs.published != 'true'
+        env:
+          LEES_CLASH_KEYSTORE_BASE64: ${{ secrets.LEES_CLASH_KEYSTORE_BASE64 }}
+          LEES_CLASH_STORE_PASSWORD: ${{ secrets.LEES_CLASH_STORE_PASSWORD }}
+          LEES_CLASH_KEY_PASSWORD: ${{ secrets.LEES_CLASH_KEY_PASSWORD }}
+        run: python3 -B tools/release/signing.py
+      - name: Install locked Go SDK and Android SDK components
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          python3 -B tools/release/install_toolchain.py
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1' 'system-images;android-35;google_apis;x86_64'
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        if: steps.existing.outputs.published != 'true'
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: clash-${{ runner.os }}-${{ hashFiles('tools/release/toolchain.json', '**/go.sum', '**/*.gradle.kts', 'gradle/libs.versions.toml') }}
+      - name: Native unit tests
+        if: steps.existing.outputs.published != 'true'
+        working-directory: core/src/main/golang
+        run: go test -v ./native/extension ./native/script ./native/diagnostics ./native/geoasset ./native/preview
+      - name: Build and test Debug, then all signed Release ABIs
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          bash gradlew :app:testAlphaDebugUnitTest :app:assembleAlphaDebug :app:assembleAlphaDebugAndroidTest -Pandroid.injected.build.abi=x86_64 --no-daemon --console=plain
+          bash gradlew :app:assembleAlphaRelease --no-daemon --console=plain
+      - name: Android flows and signed R8 runtime
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash tools/release/verify_android.sh
+      - name: Verify identity, independent signing and stage artifacts
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          python3 -B tools/release/audit_apk.py app/build/outputs/apk/alpha/release/*.apk
+          python3 -B tools/release/stage.py "$TAG"
+      - name: Publish immutable assets in this private repository
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          gh release create "$TAG" artifacts/release/* --repo "$RELEASE_REPOSITORY" --target "$(git rev-parse HEAD)" --draft --latest=false --title "Lee’s Clash ${TAG#v}" --notes-file docs/RELEASE_NOTES.md
+          gh release edit "$TAG" --repo "$RELEASE_REPOSITORY" --draft=false --latest=false
+      - name: Remove ephemeral signing material
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          Path('signing.properties').unlink(missing_ok=True)
+          (Path(os.environ['RUNNER_TEMP']) / 'lees-clash-release.p12').unlink(missing_ok=True)
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        with:
+          name: clash-verification
+          path: |
+            ${{ runner.temp }}/clash-verification/
+            app/build/reports/tests/
+          retention-days: 7
+  mirrors:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [cos, r2]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - name: Test cleanup boundaries
+        run: python3 -B -m unittest discover -s tools/release/tests -v
+      - name: Download verified private release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$TAG" --repo "$RELEASE_REPOSITORY" --dir assets
+      - name: Install COS SDK
+        if: matrix.channel == 'cos'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cos-venv"
+          "$RUNNER_TEMP/cos-venv/bin/pip" install "cos-python-sdk-v5==$(python3 -c 'import json; print(json.load(open("tools/release/toolchain.json"))["cosSdk"])')"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        if: matrix.channel == 'r2'
+        with:
+          node-version: '22'
+      - name: Upload, verify feed, then remove only old Clash packages
+        env:
+          TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+          TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+          TENCENT_COS_SECRET_ID: ${{ secrets.TENCENT_COS_SECRET_ID }}
+          TENCENT_COS_SECRET_KEY: ${{ secrets.TENCENT_COS_SECRET_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          if [ "$CHANNEL" = cos ]; then
+            "$RUNNER_TEMP/cos-venv/bin/python" -B tools/release/mirror.py cos assets
+          else
+            python3 -B tools/release/mirror.py r2 assets
+          fi

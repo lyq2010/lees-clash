@@ -50,7 +50,14 @@ class HTTP(http.server.BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        if self.path.startswith("/config-slow"):
+        if self.path == "/config-error":
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(b"fixture server error")
+            return
+        elif self.path.partition("?")[0] == "/ip-info":
+            data = b'{"ip":"203.0.113.5","isp":{"asn":"AS64500","isp":"Local fixture"},"location":{"country":"Test","city":"Loopback"},"risk":{"is_vpn":false,"is_proxy":false,"is_tor":false,"is_mobile":false,"is_datacenter":true,"risk_score":0}}'
+        elif self.path.startswith("/config-slow"):
             time.sleep(1.5)
             data = CONFIG.encode()
         elif self.path.startswith("/config-invalid"):
@@ -77,6 +84,8 @@ class HTTP(http.server.BaseHTTPRequestHandler):
         else:
             data = b"lees-clash-local-fixture"
         self.send_response(200)
+        if self.path.startswith("/config"):
+            self.send_header("subscription-userinfo", "upload=1024; download=2048; total=1048576; expire=1893456000")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

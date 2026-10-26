@@ -15,6 +15,7 @@ import (
 	"github.com/metacubex/mihomo/config"
 	RC "github.com/metacubex/mihomo/rules/common"
 	"lees/native/common"
+	"lees/native/extension"
 	"lees/native/tunnel"
 )
 
@@ -81,6 +82,9 @@ func readProfile(path string) (*Profile, error) {
 	raw, err := config.UnmarshalRawConfig(data)
 	if err != nil {
 		return nil, fmt.Errorf("所选配置无法解析: %w", err)
+	}
+	if err := extension.Apply(raw, path); err != nil {
+		return nil, err
 	}
 	proxies := map[string]*tunnel.Proxy{}
 	order := []string{"DIRECT", "REJECT"}

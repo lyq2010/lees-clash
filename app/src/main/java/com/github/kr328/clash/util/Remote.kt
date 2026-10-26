@@ -5,19 +5,19 @@ import io.github.leenban.clash.common.log.Log
 import io.github.leenban.clash.remote.Remote
 import io.github.leenban.clash.service.remote.IClashManager
 import io.github.leenban.clash.service.remote.IProfileManager
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.CoroutineContext
 
 suspend fun <T> withClash(
     context: CoroutineContext = Dispatchers.IO,
-    block: suspend IClashManager.() -> T
+    block: suspend IClashManager.() -> T,
 ): T {
     while (true) {
         val remote = Remote.service.remote.get()
-        val client = remote.clash()
 
         try {
+            val client = remote.clash()
             return withContext(context) { client.block() }
         } catch (e: DeadObjectException) {
             Log.w("Remote services panic")
@@ -29,13 +29,13 @@ suspend fun <T> withClash(
 
 suspend fun <T> withProfile(
     context: CoroutineContext = Dispatchers.IO,
-    block: suspend IProfileManager.() -> T
+    block: suspend IProfileManager.() -> T,
 ): T {
     while (true) {
         val remote = Remote.service.remote.get()
-        val client = remote.profile()
 
         try {
+            val client = remote.profile()
             return withContext(context) { client.block() }
         } catch (e: DeadObjectException) {
             Log.w("Remote services panic")

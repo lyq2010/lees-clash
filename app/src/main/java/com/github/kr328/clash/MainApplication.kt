@@ -10,6 +10,8 @@ import io.github.leenban.clash.service.util.sendServiceRecreated
 import io.github.leenban.clash.util.clashDir
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Suppress("unused")
 class MainApplication : Application() {
@@ -30,6 +32,9 @@ class MainApplication : Application() {
 
         if (processName == packageName) {
             Remote.launch()
+            Global.launch(Dispatchers.IO) {
+                runCatching { io.github.leenban.clash.update.UpdateInstaller.cleanupCache(this@MainApplication) }
+            }
         } else {
             sendServiceRecreated()
         }

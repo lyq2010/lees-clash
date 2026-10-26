@@ -233,6 +233,7 @@ fun ProfileScreen(
             }
         }
         LazyColumn(Modifier.weight(1f)) {
+            if (profile.type != Profile.Type.File) item { SubscriptionDetails(profile) }
             item {
                 LucidSection("配置属性") {
                     LucidField("名称", name, { name = it })
@@ -255,6 +256,7 @@ fun ProfileScreen(
                 }
             item {
                 LucidSection("操作") {
+                    LucidRow("规则、代理与配置扩展", onClick = { navigate("extension/${profile.uuid}") })
                     LucidRow(
                         "克隆为本地配置",
                         onClick = {
@@ -300,17 +302,30 @@ fun FilesScreen(
     importFile: (String) -> Unit,
     export: (String, String) -> Unit,
     confirm: (String, () -> Unit) -> Unit,
+    editExternal: (String) -> Unit,
 ) {
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var text by rememberSaveable { mutableStateOf("") }
+    var renaming by rememberSaveable { mutableStateOf<String?>(null) }
+    val leave: () -> Unit = { if (renaming != null) renaming = null else if (editing != null) editing = null else back() }
+    BackHandler(editing != null || renaming != null, onBack = leave)
     Column(Modifier.fillMaxSize()) {
         LucidHeader(
-            if (editing == null) "配置与资源文件" else "编辑文件",
-            back,
-            if (editing == null) "导入" else "保存",
+            if (renaming != null) "重命名文件" else if (editing == null) "配置与资源文件" else "编辑文件",
+            leave,
+            if (editing == null && renaming == null) "导入" else "保存",
             actionEnabled = !state.busy,
         ) {
-            if (editing == null) importFile(id)
+            if (renaming != null) vm.task(progress = "正在重命名", success = "文件已重命名") {
+                require(text.isNotBlank() && text !in setOf(".", "..") && !text.contains('/') && !text.contains('\\')) { "文件名无效" }
+                val uuid = java.util.UUID.fromString(id.substringBefore('/'))
+                try {
+                    vm.repository.files.renameDocument(renaming!!, text)
+                    io.github.leenban.clash.util.withProfile { commit(uuid) }
+                } finally { io.github.leenban.clash.util.withProfile { release(uuid) } }
+                renaming = null
+                vm.changed()
+            } else if (editing == null) importFile(id)
             else
                 vm.task(progress = "正在保存文件", success = "文件已保存") {
                     vm.repository.writeDocument(editing!!, text)
@@ -327,7 +342,8 @@ fun FilesScreen(
                 }
         }
         LazyColumn {
-            if (editing != null)
+            if (renaming != null) item { LucidSection { LucidField("文件名", text, { text = it }) } }
+            else if (editing != null)
                 item { LucidSection { LucidField("", text, { text = it }, multiline = true) } }
             else
                 item {
@@ -357,6 +373,9 @@ fun FilesScreen(
                                     "导出 ${file.name}",
                                     onClick = { export(documentId, file.name) },
                                 )
+                            if (documentId.contains("/providers/"))
+                                LucidRow("重命名 ${file.name}", onClick = { text = file.name; renaming = documentId })
+                            if (!file.isDirectory) LucidRow("使用外部编辑器", onClick = { editExternal(documentId) })
                             if (documentId.contains("/providers/"))
                                 LucidRow(
                                     "删除 ${file.name}",

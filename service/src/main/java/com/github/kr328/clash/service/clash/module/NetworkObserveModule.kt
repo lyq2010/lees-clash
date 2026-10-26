@@ -14,9 +14,9 @@ import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import java.util.concurrent.ConcurrentHashMap
 
-class NetworkObserveModule(service: Service) : Module<Network>(service) {
+class NetworkObserveModule(service: Service) : Module<Network?>(service) {
     private val connectivity = service.getSystemService<ConnectivityManager>()!!
-    private val networks: Channel<Network> = Channel(Channel.UNLIMITED)
+    private val networks: Channel<Network> = Channel(Channel.CONFLATED)
     private val request = NetworkRequest.Builder().apply {
         addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
         addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -42,6 +42,11 @@ class NetworkObserveModule(service: Service) : Module<Network>(service) {
         override fun onAvailable(network: Network) {
             Log.i("NetworkObserve onAvailable network=$network")
             networkInfos[network] = NetworkInfo()
+            networks.trySend(network)
+        }
+
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            networks.trySend(network)
         }
 
         override fun onLosing(network: Network, maxMsToLive: Int) {
@@ -134,7 +139,7 @@ class NetworkObserveModule(service: Service) : Module<Network>(service) {
             while (true) {
                 val quit = select {
                     networks.onReceive {
-                        enqueueEvent(it)
+                        enqueueEvent(networkInfos.asSequence().minByOrNull { networkToInt(it) }?.key)
 
                         false
                     }

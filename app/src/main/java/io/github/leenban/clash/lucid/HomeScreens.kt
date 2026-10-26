@@ -204,7 +204,8 @@ fun HomeScreen(
                             listOf(Color(0xFF73747A), Color(0xFF8C8D94)),
                         ) {
                             Text(
-                                if (state.running) "服务正在运行" else "服务未启动",
+                                if (state.traffic.networkBypassed) "按需已暂停 VPN 接管"
+                                else if (state.running) "服务正在运行" else "服务未启动",
                                 Modifier.padding(horizontal = 15.dp),
                                 color = Color.White,
                                 fontSize = 15.sp,
@@ -320,6 +321,7 @@ fun ToolsScreen(navigate: (String) -> Unit) {
             fontWeight = FontWeight.Bold,
         )
         LucidSection("网络诊断") {
+            LucidRow("IP 与网络检查", symbol = LucidSymbol.Network, onClick = { navigate("network-check") })
             LucidRow(
                 "实时连接",
                 symbol = LucidSymbol.List,
@@ -376,11 +378,13 @@ fun MoreScreen(navigate: (String) -> Unit) {
             )
         }
         LucidSection("配置资源") {
+            LucidRow("本地备份与恢复", symbol = LucidSymbol.Folder, onClick = { navigate("backup") })
             LucidRow("资源提供器", symbol = LucidSymbol.Folder, onClick = { navigate("providers") })
             LucidRow("Geo 数据", symbol = LucidSymbol.Dns, onClick = { navigate("geodata") })
             LucidRow("加密配置密钥", symbol = LucidSymbol.Shield, onClick = { navigate("keys") })
         }
         LucidSection("支持") {
+            LucidRow("应用更新", symbol = LucidSymbol.Refresh, onClick = { navigate("update") })
             LucidRow(
                 "使用帮助",
                 symbol = LucidSymbol.Document,

@@ -27,6 +27,9 @@ object ProfileProcessor {
     private val profileLock = Mutex()
     private val processLock = Mutex()
 
+    internal suspend fun <T> stableSnapshot(block: suspend () -> T): T =
+        processLock.withLock { profileLock.withLock { block() } }
+
     suspend fun apply(context: Context, uuid: UUID, callback: IFetchObserver? = null) {
         withContext(NonCancellable) {
             processLock.withLock {

@@ -47,6 +47,9 @@ class DiagnosticLifecycleTest {
                                 external = {},
                                 export = { _, _ -> },
                                 importGeo = {},
+                                exportBackup = {},
+                                restoreBackup = {},
+                                editExternal = {},
                                 finish = {},
                             )
                         }

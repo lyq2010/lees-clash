@@ -34,6 +34,7 @@ data class RuleInfo(val index: Int, val type: String, val payload: String, val p
 
 @Serializable
 data class TrafficStats(
+    val networkBypassed: Boolean = false,
     val uploadRate: Long = 0,
     val downloadRate: Long = 0,
     val uploadTotal: Long = 0,

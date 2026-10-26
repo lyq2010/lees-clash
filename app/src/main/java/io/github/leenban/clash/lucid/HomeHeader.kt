@@ -55,7 +55,9 @@ fun HomeHeader(
             }
             Text(
                 name,
-                Modifier.weight(1f).padding(start = 10.dp, end = 6.dp).testTag("home-profile-name"),
+                Modifier.weight(1f, fill = false)
+                    .padding(start = 10.dp, end = 6.dp)
+                    .testTag("home-profile-name"),
                 color = c.text,
                 fontSize = 17.sp,
                 lineHeight = 22.sp,

@@ -21,22 +21,64 @@ import kotlinx.serialization.json.*
 class ClashManager(private val context: Context) :
     IClashManager, CoroutineScope by CoroutineScope(Dispatchers.IO) {
     private val store = ServiceStore(context)
+    private val geo = GeoDataManager(context)
     private var logReceiver: ReceiveChannel<LogMessage>? = null
+
+    override fun queryGeoData(): String = geo.status()
+
+    override fun queryCoreVersion(): String = Bridge.nativeCoreVersion()
+
+    override fun generateAgeKeyPair(hybrid: Boolean): String =
+        DiagnosticJson.format.encodeToString(
+            AgeKeyPair.serializer(),
+            if (hybrid) Clash.genHybridKeyPair() else Clash.genX25519KeyPair(),
+        )
+
+    override suspend fun updateGeoData(id: String) = geo.update(id)
+
+    override suspend fun importGeoData(id: String, uri: String) = geo.import(id, uri)
 
     override fun queryDiagnostics(operation: String, payload: String): String {
         require(
             operation in
-                setOf("connections", "connection", "close", "closeAll", "rules", "traffic", "dns")
+                setOf(
+                    "connections",
+                    "connection",
+                    "close",
+                    "closeAll",
+                    "rules",
+                    "traffic",
+                    "dns",
+                    "runtime",
+                    "networkCheck",
+                )
         )
         require(payload.length <= 8192)
+        if (operation == "runtime" && payload.contains("javaStacks")) {
+            check(io.github.leenban.clash.service.BuildConfig.DEBUG)
+            return buildJsonObject {
+                    put(
+                        "main",
+                        android.os.Looper.getMainLooper().thread.stackTrace.joinToString("\n"),
+                    )
+                }
+                .toString()
+        }
+        if (operation == "runtime" && payload.contains("stacks"))
+            check(io.github.leenban.clash.service.BuildConfig.DEBUG)
         if (operation == "rules" && !StatusProvider.serviceRunning)
             return profileDiagnostic(
                 "profileRules",
                 DiagnosticJson.format.parseToJsonElement(payload).jsonObject,
             )
-        return DiagnosticJson.checked(
+        val result = DiagnosticJson.checked(
             io.github.leenban.clash.core.bridge.Bridge.nativeDiagnostics(operation, payload)
         )
+        if (operation == "traffic") return JsonObject(
+            DiagnosticJson.format.parseToJsonElement(result).jsonObject +
+                ("networkBypassed" to JsonPrimitive(StatusProvider.networkBypassed))
+        ).toString()
+        return result
     }
 
     private fun profileDiagnostic(
@@ -110,6 +152,18 @@ class ClashManager(private val context: Context) :
             )
         }
         return Clash.queryGroup(name, proxySort)
+    }
+
+    override fun queryProxyGroupSummary(name: String): ProxyGroup {
+        val payload = buildJsonObject {
+            put("id", name)
+            if (!StatusProvider.serviceRunning) put("query", runBlocking {
+                SelectionDao().querySelections(checkNotNull(store.activeProfile)).find { it.proxy == name }?.selected.orEmpty()
+            })
+        }
+        val text = if (StatusProvider.serviceRunning) DiagnosticJson.checked(Bridge.nativeDiagnostics("groupSummary", payload.toString()))
+            else profileDiagnostic("profileGroupSummary", payload)
+        return DiagnosticJson.format.decodeFromString(ProxyGroup.serializer(), text)
     }
 
     override fun queryConfiguration(): UiConfiguration {

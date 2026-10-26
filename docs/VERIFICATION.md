@@ -1,60 +1,35 @@
 # 验证记录
 
-更新日期：2026-10-26。机器可读结果见 [results.json](verification/results.json)。
+更新日期：2026-10-27。结果仅覆盖表中场景，未完成项见 DEVELOPMENT-MATRIX。原始日志、截图和安装包已按清理范围移除；测试源码与固定工具链保留，可重新运行。
 
-| 验证 | 结果 | 证据 |
-|---|---|---|
-| 原版首次构建 | 未通过，当时缺少 NDK；未继续原版运行对照 | `I:\DevCache\lees-clash-baseline-build.log` |
-| 设计模块及服务依赖 Kotlin | 通过，61 个任务 | `I:\DevCache\lees-clash-design-compile.log` |
-| 完整应用 Kotlin | 通过，102 个任务 | `I:\DevCache\lees-clash-app-compile.log` |
-| x86_64 Go 原生库 | 通过 | `I:\DevCache\lees-clash-native-build.log` |
-| 当前 Debug / AndroidTest APK 与 Kotlin 单元测试 | 通过，6 项单元测试；最终 APK 构建通过 | `I:\DevCache\lees-clash-workflow-verified-build.log`、`I:\DevCache\lees-clash-home-restored-build.log` |
-| Go 诊断 | 5 项通过：诊断 4 项，停机配置 / 缓存预览 1 项 | [输出](verification/go-tests.txt) |
-| Geo 数据 | 四个资源 SHA-256 与发布者 digest 一致，构建校验通过 | `resources/geodata/manifest.json` |
-| MuMu 配置工作流 | 2 项通过：导入进度、防重复、成功返回、失败重试、直接更新、编辑保存、停机策略 / 规则及预选 | [输出](verification/profile-workflow.txt) |
-| 导航与主题 | 1 项通过；首页、工具、应用设置、网络、覆写及深色 | [输出](verification/navigation.txt) |
-| 本机网络集成 | 2 项通过；创建本地配置、VPN、策略切换 / 拒绝无效节点并保留选择、规则、DNS、转发、连接关闭、上下行统计 | [输出](verification/native-integration.txt) |
-| 首页与动效 | 2 项通过：单行配置名、320 / 360dp、1.5 倍字体、转场中间帧及快速反向 | [输出](verification/home-ui.txt) |
-| 真实连接分页 | 1 项通过：65 连接加载更多、每秒刷新、搜索、详情结束保留及全部关闭 | [输出](verification/paging.txt) |
-| 前后台采样 | 1 项通过：真实 Android 时钟，后台 2.2 秒不采样、恢复后获取新状态 | [输出](verification/lifecycle.txt) |
-| Binder 取消竞争 | 2 项通过：取消后迟到回复不写调用方 Parcel、重复完成不二次交付 | [输出](verification/binder-cancellation.txt) |
-| 关闭动画导航 | 当前版本 1 次通过，覆盖页面返回和 Activity 重建，设置恢复为 0.5 | [输出](verification/no-animation.txt) |
-| 私有仓与 Actions | private=true，Actions enabled=false；main 已建立 | `lyq2010/lees-clash` |
-| 正式 Release / R8 / 其余 ABI | 尚未执行 | 不以 Debug 结果替代 |
+| 验证 | 结果与范围 |
+|---|---|
+| 固定原版 CMFA 基线 B02 | 独立构建、安装、导入、VPN、本机实际代理转发通过；未改原版源码 |
+| 最终 Debug / Release | 构建通过；四 ABI 与 universal、R8、独立签名 / 包名 / minSDK / 内核检查通过 |
+| 签名 Release 实际运行 | 独立 Android17 x86_64 模拟器，导入配置、VPN、本机 HTTP 实际转发通过 |
+| MuMu API35 | 完整24项通过；最后安全区底色调整后，首页 / 反馈 / 导入重试 / 导航7项再验证通过 |
+| JVM | 17项通过：格式1、分页4、诊断1、更新协议6、更新缓存5 |
+| Go / QuickJS | 宿主10项通过；Android脚本转换 / 限时 / 限内存 / 非法输出 / 宿主访问拒绝通过；非2xx订阅响应测试通过 |
+| 发布辅助脚本 | 11项通过；覆盖缺失签名、四ABI完整性、哈希、先包后更新源、失败不清理、旧版本边界及完整分页；Python / Bash语法通过 |
+| Android8 API26 | 核心9项通过：网络、设备设置、扩展、备份 |
+| Android17 API37 | 核心10项通过；Compose UI 用例被 Espresso 旧 InputManager 反射接口阻塞 |
+| 真实配置 | DNS A/AAAA、HTTPS、策略与规则、测速、25个提供器及5类Geo更新通过；机场订阅开关导致更新无法可靠验收，由用户后测 |
+| 大数据 / 生命周期 | 5000节点、5001规则、12组摘要 / 分页；65连接、后台停止采样、服务死亡恢复通过 |
+| 内存 | UI 不映射第二份Go内核；Debug暖样本 UI93085KiB / 后台113443KiB；Release本机fixture样本 UI48110KiB / 后台63858KiB PSS。设备 / 配置 / 热度不同，不作为固定峰值或降幅 |
+| 远端配置 | private仓、Actions开启且仅允许GitHub官方动作；4个旧工作流停用，8项Secrets配置成功；R2桶及对象列表只读通过 |
 
-首页恢复原有布局后，配置工作流与导航已重新验证。当前 MuMu 共有 11 个测试方法通过；关闭动画导航额外通过 1 次。当前 Debug APK 的 SHA-256 为 `9fddddf8aa925be311e0e76e888383dd737a8c03c4c3176972ce2050b1dc602b`。
+## 最终包身份
 
-## 自动截图
+- applicationId `io.github.leenban.clash`；versionName `0.1.0`；versionCode `1`；minSDK26 / target35。
+- 独立证书 SHA-256：`ea3502ded7c00df671f10f197483ab42caa26ce41a9fa61f529537e5503657e6`。
+- universal Release APK SHA-256：`c2b7a7ad0a1f3638594c1010c08fcfff0a5e739d17aaf940d8f1ab8b2b077c80`。
+- x86_64 Debug APK SHA-256：`80464992b798da3010dcc8a1c9717be85267db619b8dd4009a45dec4d28e8bd3`。
+- 本地7个发布资产的完整性已核对；没有打标签、上传云对象或执行正式发布。
 
-- [正常前台首页](verification/home-current.png)
-- [浅色首页](verification/home-light.png)、[深色首页](verification/home-dark.png)
-- [工具](verification/tools-light.png)、[应用设置](verification/settings-light.png)
-- [网络设置](verification/network-light.png)、[覆写](verification/overrides-light.png)
+## 复现与保留范围
 
-- [320dp 单行配置头部](verification/header-320-font-1.0.png)、[窄屏与 1.5 倍字体](verification/header-narrow-large-font.png)
-- [转场中间帧](verification/motion-forward-middle.png)与[结束帧](verification/motion-forward-end.png)：测试面板用于验证插值和可中断行为，不是产品页面。
-- [独立图标预览](brand/icon-preview.png)与[SVG 母版](brand/icon.svg)
+Windows 使用 scripts/Build.ps1；Android用例在 app/src/androidTest，JVM用例在 app/src/test，发版测试为 `python -B -m unittest discover -s tools/release/tests -v`。本机网络用例需要 scripts/local-fixture.py 及ADB reverse 18080 / 18081 / 13053，不使用机场订阅。
 
-截图由自动化生成，截图前等待界面稳定，避免保留切换动画中的暗帧。截图证明实际页面可运行，不代表已经完成 Surge 逐像素或完整视觉验收。
+清理结束保留 MuMu开发包、用户配置与数据、源码测试、独立密钥和E盘备份、共享SDK及依赖缓存。停止本轮fixture与自建模拟器，撤销本轮端口映射；移除构建目录、原始测试产物和截图。旧源码 / 资源未删除；精确候选见 CLEANUP-CANDIDATES。
 
-## 操作工作流与停机浏览
-
-导入完成通过显式结果事件切换到配置列表，并显示新增条目；手动更新使用等待完成的 `updateNow`，自动后台 Worker 调度保持独立。错误保留、进行中去重与成功反馈由统一组件呈现。
-
-停止时从所选配置与已缓存提供器读取分组 / 规则，不应用配置或联网。手动预选持久化，自动策略与测速不虚构运行结果。预览单测覆盖缓存提供器、过滤、逻辑规则、自动组及文件变化后的缓存失效；尚未覆盖所有 mihomo 扩展语法与大规模提供器组合。
-
-## 回归发现
-
-导航重建初次触发 `Parcel::markForBinder` / SIGABRT；只将新增诊断改为同步 Binder 未覆盖既有异步配置接口。关闭系统动画的此前测试再次复现相同中止：kaidl 1.15 完成回调直接写入调用方 reply，取消后该 Parcel 可已回收并被系统复用。
-
-已纳入本地运行库补丁，改为回调私有快照、恢复后转交和原子完成状态；迟到完成 / 重复回复的确定性测试通过，此前关闭动画的原导航用例连续 3 次通过，当前版本又通过 1 次。其余既有异步接口共用该补丁；长期并发与服务死亡仍需扩展测试，不将本轮结果等同于全部压力场景。
-
-生命周期回归需要避免用前台 Compose 测试时钟等待已经销毁的测试根；因此前台分页使用 Compose 时钟，后台测试使用 ActivityScenario 与真实 Android 时钟。应用隐藏会解除 UI 服务绑定，测试通过预先取得的 Binder 检查内核变化，没有为后台页面重新绑定服务。
-
-## 边界
-
-- 仅验证 MuMu Android 15 / x86_64；未验证物理 ARM64 真机、Android 8、真实蜂窝切换、平板和全页面大字体，窄屏头部 1.5 倍字体已有专项回归。
-- 未验证节点测速、后台订阅更新、二维码、外部提供器、完整文件操作及全部覆写字段。
-- 分页刷新与基本生命周期回归已通过；长期、高并发与服务进程死亡场景仍待补充。
-- 没有公开发版。签名属性和密钥未进入 Git，尚未执行正式签名包验收。
-- 测试结束后停止本应用服务和本机 fixture，移除 3 条 adb reverse；恢复原活动配置，保留模拟器、应用和测试配置。测试仅下载本机 fixture，不访问用户真实订阅。
+完整横屏 / 平板、按需真实网络切换、Geo成功恢复 / SAF、相机扫码 / 外部编辑器、加密订阅解密及全部系统入口仍待验收；真实蜂窝与非x86运行缺对应条件。远程发布门禁尚未实际执行，不能用本地结果代替。

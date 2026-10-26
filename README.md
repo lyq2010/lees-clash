@@ -2,7 +2,7 @@
 
 基于 CMFA / mihomo 的 Android 代理客户端，使用 Kotlin 和 Jetpack Compose 实现 Surge iOS Lucid 风格界面。
 
-**开发初版：x86_64 Debug 可构建运行，当前自动化测试通过；完整功能与正式发版验收尚未完成。**
+**开发版：四 ABI 签名构建、MuMu 24项回归与独立 Release 代理运行通过；完整验收范围见开发矩阵。**
 
 - 应用标识 `io.github.leenban.clash`，最低 Android 8 / API 26。
 - 首页 / 工具 / 更多，统一 Lucid 彩色卡片、分组列表、浅色与深色界面。
@@ -14,12 +14,12 @@
 - [交接文档](docs/HANDOFF.md)
 - [开发矩阵与未完成项](docs/DEVELOPMENT-MATRIX.md)
 - [界面、动效与品牌规范](docs/UI-DESIGN.md)
-- [验证结果与截图](docs/VERIFICATION.md)
+- [验证记录](docs/VERIFICATION.md)
 - [构建与发布](docs/RELEASE.md)
 - [来源版本](docs/UPSTREAM.md)
 - [中文更新日志](CHANGELOG.md)
 
-源码仓为私有仓，GitHub Actions 关闭。当前没有正式 APK 发布。单 ABI Debug 包是 testOnly 构建，安装使用 `adb install -r -t`。
+源码与发版均使用当前私有仓；Actions 已开启并限制为 GitHub 官方动作，旧上游工作流已停用。新的手动发布流程已随本次提交纳入仓库，尚未运行。当前没有正式 APK 发布。单 ABI Debug 包是 testOnly 构建，安装使用 `adb install -r -t`。
 
 ## 来源与许可
 

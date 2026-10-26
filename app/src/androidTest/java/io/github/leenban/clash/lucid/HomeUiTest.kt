@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
@@ -31,6 +32,37 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class HomeUiTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun shortProfileTitleDoesNotStretchBeforeDisclosure() {
+        compose.setContent {
+            LucidTheme(false) {
+                Box(Modifier.width(360.dp)) { HomeHeader("Weget", false, false, false, {}, {}) }
+            }
+        }
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithTag("home-profile-name", useUnmergedTree = true).performSemanticsAction(
+            SemanticsActions.GetTextLayoutResult
+        ) {
+            it(layouts)
+        }
+        val text = layouts.single()
+        assertTrue(
+            "Short title must use its text width",
+            text.size.width - text.getLineRight(0) < 4f,
+        )
+        val arrow =
+            compose
+                .onNodeWithTag("profile-disclosure", useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+        val title =
+            compose
+                .onNodeWithTag("home-profile-name", useUnmergedTree = true)
+                .fetchSemanticsNode()
+                .boundsInRoot
+        assertTrue("Disclosure must follow the title", arrow.left - title.right < 24f)
+    }
 
     private fun save(name: String, bitmap: Bitmap) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

@@ -24,6 +24,20 @@ import java.util.*
 class ProfileManager(private val context: Context) : IProfileManager,
     CoroutineScope by CoroutineScope(Dispatchers.IO) {
     private val store = ServiceStore(context)
+    private val backup = io.github.leenban.clash.service.backup.LocalBackupManager(context)
+    private val extensions = ProfileExtensionManager(context)
+
+    override suspend fun queryExtension(uuid: UUID): String = extensions.read(uuid)
+
+    override suspend fun saveExtension(uuid: UUID, text: String) { extensions.write(uuid, text) }
+
+    override suspend fun exportBackup(uri: String, ui: String) {
+        backup.export(uri, ui)
+    }
+
+    override suspend fun previewBackup(uri: String): String = backup.preview(uri)
+
+    override suspend fun restoreBackup(uri: String): String = backup.restore(uri)
 
     init {
         launch {

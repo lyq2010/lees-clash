@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"lees/native/geoasset"
 	"lees/native/preview"
+	LT "lees/native/tunnel"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -20,13 +23,16 @@ const maxPage = 50
 const maxResponse = 192 * 1024
 
 type Request struct {
-	Query      string `json:"query"`
-	Offset     int    `json:"offset"`
-	Limit      int    `json:"limit"`
-	ID         string `json:"id"`
-	Domain     string `json:"domain"`
-	RecordType string `json:"recordType"`
-	Path       string `json:"path"`
+	URL        string   `json:"url"`
+	Direct     bool     `json:"direct"`
+	Query      string   `json:"query"`
+	Offset     int      `json:"offset"`
+	Limit      int      `json:"limit"`
+	ID         string   `json:"id"`
+	Domain     string   `json:"domain"`
+	RecordType string   `json:"recordType"`
+	Path       string   `json:"path"`
+	Overrides  []string `json:"overrides"`
 }
 
 type Page[T any] struct {
@@ -112,7 +118,45 @@ func Query(operation, payload string) string {
 	}
 	var result any
 	switch operation {
-	case "profileGroupNames", "profileGroup", "profileRules", "profileMode", "profileProviders":
+	case "groupSummary":
+		value := LT.QueryProxyGroupSummary(request.ID)
+		if value == nil {
+			return failure("没有该策略组")
+		}
+		result = value
+	case "networkCheck":
+		value, err := probe(request)
+		if err != nil {
+			return failure(err.Error())
+		}
+		result = value
+	case "runtime":
+		var memory runtime.MemStats
+		runtime.ReadMemStats(&memory)
+		values := map[string]any{"heapAlloc": memory.HeapAlloc, "heapInuse": memory.HeapInuse, "heapReleased": memory.HeapReleased, "sys": memory.Sys, "goroutines": runtime.NumGoroutine()}
+		if request.Query == "stacks" {
+			buffer := make([]byte, 64*1024)
+			values["stacks"] = string(buffer[:runtime.Stack(buffer, true)])
+		}
+		result = values
+	case "geoStatus":
+		result = geoasset.List()
+	case "geoUpdate":
+		if err := geoasset.Update(request.ID, request.Path, request.Overrides); err != nil {
+			return failure(err.Error())
+		}
+		result = map[string]bool{"ok": true}
+	case "geoInstall":
+		if err := geoasset.Install(request.ID, request.Path); err != nil {
+			return failure(err.Error())
+		}
+		result = map[string]bool{"ok": true}
+	case "geoValidate":
+		if err := geoasset.Validate(request.ID, request.Path); err != nil {
+			return failure(err.Error())
+		}
+		result = map[string]bool{"ok": true}
+	case "profileGroupNames", "profileGroup", "profileGroupSummary", "profileRules", "profileMode", "profileProviders":
 		profile, err := preview.Read(request.Path)
 		if err != nil {
 			return failure(err.Error())
@@ -130,10 +174,24 @@ func Query(operation, payload string) string {
 				}
 			}
 			result = names
-		case "profileGroup":
+		case "profileGroup", "profileGroupSummary":
 			for _, group := range profile.Groups {
 				if group.Name == request.ID {
-					result = group.Group
+					if operation == "profileGroupSummary" {
+						copy := *group.Group
+						if copy.Type == "select" {
+							for _, proxy := range copy.Proxies {
+								if proxy.Name == request.Query {
+									copy.Now = request.Query
+									break
+								}
+							}
+						}
+						copy.Proxies = []*LT.Proxy{}
+						result = &copy
+					} else {
+						result = group.Group
+					}
 					break
 				}
 			}

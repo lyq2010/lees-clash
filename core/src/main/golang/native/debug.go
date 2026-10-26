@@ -1,4 +1,5 @@
-// +build debug
+//go:build debug && pprof
+// +build debug,pprof
 
 package main
 

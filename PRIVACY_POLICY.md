@@ -1,50 +1,19 @@
-## Privacy Policy
+# Lee’s Clash 隐私说明
 
-The Clash for Android is built as an Open Source software. This app is provided by personal at no cost and is intended for use as is.
+更新日期：2026-10-27。
 
-This page is used to inform visitors regarding our policies with the collection, use, and disclosure of Personal Information if anyone decided to use our app.
+Lee’s Clash 在本机保存代理配置、订阅地址、节点与策略选择、资源缓存和设置。VPN 接口用于将流量交给本机 mihomo 内核，再按配置直接连接或经过用户指定的代理服务器。配置提供者、DNS 服务及代理服务可以观察各自参与处理的数据；请自行选择可信服务。
 
-If you choose to use our app, then you agree to the collection and use of information in relation to this policy. The Personal Information that we collect is used for providing and improving the app. We will not use or share your information with anyone except as described in this Privacy Policy.
+应用未接入自有账号、广告、分析或崩溃云上传服务。运行日志与连接诊断留在本机，可能包含域名、IP 和应用信息；导出或分享前应自行检查。扫码使用随安装包提供的识别组件，应用没有上传二维码图像的逻辑。系统及第三方组件的行为以其实现为准。
 
-The terms used in this Privacy Policy have the same meanings as in our Terms and Conditions, which is accessible at Clash for Android unless otherwise defined in this Privacy Policy.
+订阅、提供器和 Geo 更新会请求配置中的地址或内核的默认资源地址。IP 与网络检查只在手动操作后请求所选服务；默认 IPQuery 可观察请求的出口 IP，其归属和风险结果由该服务提供。检查历史默认不保存；启用后仅在本机保留最近 20 次结果，不保存请求路径、查询参数或响应正文。
 
-**Information Collection and Use**
+按需网络默认关闭。读取指定 Wi-Fi 的 SSID 需要 Android 定位权限及系统定位开关；后台识别可能需要始终允许定位。SSID 仅用于本机条件匹配，不写入应用日志；无法读取时保持正常 VPN 接管。不使用这些条件时不需要申请定位权限。
 
-For a better experience, while using our app, we may require you to provide us with certain personally identifiable information. The information that we request will be retained by us and used as described in this privacy policy.
+本地备份由用户选择保存位置，包含配置、订阅链接、资源、设置及配置私钥；本应用不加密 ZIP 归档，应妥善保管。恢复会先校验归档和配置，再合并缺少的配置，保留已有配置。没有 WebDAV 或其他云备份功能。
 
-The app does use third party services that may collect information used to identify you.
+文件导入、导出及外部编辑使用 Android 文件授权。对外部应用授予的文件权限由对应操作决定；外部编辑返回后重新验证配置，有效后才应用。通知权限用于显示代理服务状态。分应用代理需要读取已安装应用列表，处理在本机进行。
 
-Link to privacy policy of third party service providers used by the app
+应用更新仅在手动检查时访问腾讯 COS 主通道与 Cloudflare R2 备用通道；服务器可观察请求 IP。下载采用流式传输并核对大小、SHA-256、包名、版本和签名。安装需用户操作及 Android 安装授权，临时包保存在应用缓存中。应用不会自动上传配置或诊断记录。
 
-*   [Google Play Services](https://www.google.com/policies/privacy/)
-*   [AppCenter](https://docs.microsoft.com/en-us/appcenter/gdpr/)
-
-**Log Data**
-
-We want to inform you that whenever you use our app, in a case of an error in the app we collect data and information (through third party products) on your phone called Log Data. This Log Data may include information such as your device Internet Protocol (“IP”) address, device name, operating system version, the configuration of the app when utilizing our App, the time and date of your use of the app, and other statistics.
-
-**Cookies**
-
-Cookies are files with a small amount of data that are commonly used as anonymous unique identifiers. These are sent to your browser from the websites that you visit and are stored on your device's internal memory.
-
-This app does not use these “cookies” explicitly. However, the app may use third party code and libraries that use “cookies” to collect information and improve their services. You have the option to either accept or refuse these cookies and know when a cookie is being sent to your device. If you choose to refuse our cookies, you may not be able to use some portions of this app.
-
-**Security**
-
-We value your trust in providing us your Personal Information, thus we are striving to use commercially acceptable means of protecting it. But remember that no method of transmission over the internet, or method of electronic storage is 100% secure and reliable, and we cannot guarantee its absolute security.
-
-**Links to Other Sites**
-
-This app may contain links to other sites. If you click on a third-party link, you will be directed to that site. Note that these external sites are not operated by us. Therefore, we strongly advise you to review the Privacy Policy of these websites. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party sites or services.
-
-**Children’s Privacy**
-
-These Services do not address anyone under the age of 13\. We do not knowingly collect personally identifiable information from children under 13\. In the case we discover that a child under 13 has provided us with personal information, we immediately delete this from our servers. If you are a parent or guardian and you are aware that your child has provided us with personal information, please contact us so that we will be able to do necessary actions.
-
-**Changes to This Privacy Policy**
-
-We may update our Privacy Policy from time to time. Thus, you are advised to review this page periodically for any changes. We will notify you of any changes by posting the new Privacy Policy on this page. These changes are effective immediately after they are posted on this page.
-
-**Contact Us**
-
-If you have any questions or suggestions about our Privacy Policy, do not hesitate to contact us.
+卸载通常会移除应用私有数据，Android 系统备份、文件提供器及用户自行导出的文件可能另有副本。开发版使用独立签名，正式版验收与发布状态见项目文档。

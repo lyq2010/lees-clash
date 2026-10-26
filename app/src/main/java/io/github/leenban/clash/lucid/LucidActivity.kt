@@ -18,17 +18,44 @@ import io.github.g00fy2.quickie.ScanQRCode
 import io.github.leenban.clash.common.constants.Intents
 import io.github.leenban.clash.core.model.*
 import io.github.leenban.clash.remote.Remote
-import io.github.leenban.clash.util.clashDir
 import io.github.leenban.clash.util.startClashService
 import io.github.leenban.clash.util.stopClashService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 open class LucidActivity : ComponentActivity() {
     private val model: ClientViewModel by viewModels()
     private var importTarget: String? = null
     private var geoTarget: String? = null
     private var exportTarget: String? = null
+    private var externalEditTarget: String? = null
+
+    private val externalEditor = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        externalEditTarget?.let { id ->
+            model.task(progress = "正在验证外部编辑结果", success = "编辑结果已验证") {
+                val uuid = java.util.UUID.fromString(id.substringBefore('/'))
+                io.github.leenban.clash.util.withProfile {
+                    try { commit(uuid) } finally { release(uuid) }
+                }
+                externalEditTarget = null
+                model.changed()
+            }
+        }
+    }
+
+    private val backupExporter =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri
+            ->
+            if (uri != null)
+                model.task(progress = "正在创建备份", success = "备份已保存") {
+                    model.repository.exportBackup(uri)
+                }
+        }
+    private val backupImporter =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null)
+                model.task(progress = "正在读取备份") {
+                    model.backupPreview(uri.toString(), model.repository.previewBackup(uri))
+                }
+        }
 
     protected open fun initialRoute(): String = "home"
 
@@ -122,6 +149,17 @@ open class LucidActivity : ComponentActivity() {
                     geoTarget = name
                     filePicker.launch(arrayOf("*/*"))
                 },
+                { backupExporter.launch("lees-clash-backup-${java.time.LocalDate.now()}.zip") },
+                { backupImporter.launch(arrayOf("application/zip", "application/octet-stream")) },
+                { id ->
+                    val intent = Intent(Intent.ACTION_EDIT).setDataAndType(model.repository.files.buildDocumentUri(id), "text/plain")
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    if (intent.resolveActivity(packageManager) == null) model.error("没有可用的外部编辑器，请先安装支持文本编辑的应用")
+                    else {
+                        externalEditTarget = id
+                        externalEditor.launch(Intent.createChooser(intent, "选择编辑器"))
+                    }
+                },
                 ::finishWithFeedback,
             )
         }
@@ -188,12 +226,7 @@ open class LucidActivity : ComponentActivity() {
             val geo = geoTarget
             val folder = importTarget
             when {
-                geo != null ->
-                    withContext(Dispatchers.IO) {
-                        contentResolver.openInputStream(uri)!!.use { input ->
-                            clashDir.resolve(geo).outputStream().use { input.copyTo(it) }
-                        }
-                    }
+                geo != null -> model.repository.importGeo(geo, uri)
                 folder != null -> {
                     val name = displayName(uri)
                     require(name.matches(Regex("[^/\\\\]+"))) { "文件名无效" }

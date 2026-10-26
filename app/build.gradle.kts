@@ -5,6 +5,7 @@ import java.nio.file.StandardCopyOption
 
 plugins {
     kotlin("android")
+    id("kotlinx-serialization")
     id("org.jetbrains.kotlin.plugin.compose")
     kotlin("kapt")
     id("com.android.application")

@@ -24,7 +24,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
-import io.github.leenban.clash.core.Clash
 import io.github.leenban.clash.design.lucid.*
 import io.github.leenban.clash.design.model.DarkMode
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +40,9 @@ fun ClientApp(
     external: () -> Unit,
     export: (String, String) -> Unit,
     importGeo: (String) -> Unit,
+    exportBackup: () -> Unit,
+    restoreBackup: () -> Unit,
+    editExternal: (String) -> Unit,
     finish: () -> Unit,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -96,7 +98,7 @@ fun ClientApp(
         }
     }
     BackHandler(stack.size > 1 || initialRoute != "home", onBack = back)
-    val theme = remember(themeRevision) { vm.repository.ui.darkMode }
+    val theme = remember(themeRevision, state.settingsRevision) { vm.repository.ui.darkMode }
     val dark =
         when (theme) {
             DarkMode.Auto -> androidx.compose.foundation.isSystemInDarkTheme()
@@ -115,111 +117,128 @@ fun ClientApp(
     }
     LucidTheme(dark) {
         val c = LocalLucidColors.current
-        Column(
+        Box(
             Modifier.fillMaxSize()
                 .background(c.background)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
         ) {
-            ClientFeedback(state) {
-                if (state.error != null) vm.clearError()
-                else state.notice?.let { vm.clearNotice(it.id) }
-            }
-            BoxWithConstraints(Modifier.weight(1f)) {
-                val wide = maxWidth >= 600.dp
-                Row(Modifier.fillMaxSize()) {
-                    if (wide)
-                        Column(Modifier.width(210.dp).fillMaxHeight()) {
-                            Text(
-                                "Lee’s Clash",
-                                Modifier.padding(20.dp),
-                                color = c.text,
-                                fontSize = 22.sp,
-                            )
-                            listOf("home" to "首页", "tools" to "工具", "more" to "更多").forEach {
-                                (destination, title) ->
-                                LucidRow(
-                                    title,
-                                    selected = stack.first() == destination,
-                                    onClick = { stack = listOf(destination) },
+            Column(Modifier.fillMaxSize().background(c.background)) {
+                BoxWithConstraints(Modifier.weight(1f)) {
+                    val wide = maxWidth >= 600.dp
+                    Row(Modifier.fillMaxSize()) {
+                        if (wide)
+                            Column(Modifier.width(210.dp).fillMaxHeight()) {
+                                Text(
+                                    "Lee’s Clash",
+                                    Modifier.padding(20.dp),
+                                    color = c.text,
+                                    fontSize = 22.sp,
                                 )
+                                listOf("home" to "首页", "tools" to "工具", "more" to "更多").forEach {
+                                    (destination, title) ->
+                                    LucidRow(
+                                        title,
+                                        selected = stack.first() == destination,
+                                        onClick = { stack = listOf(destination) },
+                                    )
+                                }
                             }
-                        }
-                    LucidPageStack(stack, Modifier.weight(1f).fillMaxHeight()) { visibleRoute ->
-                        val visibleKind = visibleRoute.substringBefore('/')
-                        val argument = Uri.decode(visibleRoute.substringAfter('/', ""))
-                        holder.SaveableStateProvider(visibleRoute) {
-                            when (visibleKind) {
-                                "home" -> HomeScreen(state, navigate, toggle, vm::setMode)
-                                "tools" -> ToolsScreen(navigate)
-                                "more" -> MoreScreen(navigate)
-                                "profiles" -> ProfilesScreen(state, vm, navigate, back)
-                                "import" ->
-                                    ImportScreen(
-                                        state,
-                                        vm,
-                                        back,
-                                        { importFile(null) },
-                                        scan,
-                                        external,
-                                        argument,
-                                    )
-                                "profile" ->
-                                    ProfileScreen(state, vm, navigate, back, export, confirm)
-                                "files" ->
-                                    FilesScreen(
-                                        argument,
-                                        state,
-                                        vm,
-                                        navigate,
-                                        back,
-                                        { importFile(it) },
-                                        export,
-                                        confirm,
-                                    )
-                                "groups" -> GroupsScreen(state, navigate, back)
-                                "nodes" -> NodesScreen(argument, state, vm, back)
-                                "providers" -> ProvidersScreen(state, vm, back)
-                                "connections" ->
-                                    ConnectionsScreen(state, vm, navigate, back, confirm)
-                                "connection" -> ConnectionScreen(state, vm, back, confirm)
-                                "rules" -> RulesScreen(state, vm, back)
-                                "dns" -> DnsScreen(state, vm, back)
-                                "stats" -> StatsScreen(state, back)
-                                "logs" -> LogsScreen(state, back)
-                                "network" -> NetworkScreen(state, vm, navigate, back)
-                                "apps" -> AppsScreen(state, vm, back)
-                                "settings" ->
-                                    SettingsScreen(vm, state, back, { themeRevision++ }, confirm)
-                                "override",
-                                "dns-settings" ->
-                                    OverrideScreen(
-                                        state,
-                                        vm,
-                                        visibleKind == "dns-settings",
-                                        back,
-                                        confirm,
-                                    )
-                                "about" -> AboutScreen(state, back) { navigate("license/$it") }
-                                "license" -> AssetTextScreen(argument, vm, back)
-                                "help" -> HelpScreen(back)
-                                "geodata" -> GeoDataScreen(back, importGeo)
-                                "keys" -> KeyScreen(vm, back)
-                                "broken",
-                                "crashed" ->
-                                    Column {
-                                        LucidHeader("应用状态", back)
-                                        LucidEmpty(
-                                            if (visibleKind == "broken") "安装包不完整" else "后台服务意外退出",
-                                            "请重新打开应用，或重新安装完整 APK。",
+                        LucidPageStack(stack, Modifier.weight(1f).fillMaxHeight()) { visibleRoute ->
+                            val visibleKind = visibleRoute.substringBefore('/')
+                            val argument = Uri.decode(visibleRoute.substringAfter('/', ""))
+                            holder.SaveableStateProvider(visibleRoute) {
+                                when (visibleKind) {
+                                    "home" -> HomeScreen(state, navigate, toggle, vm::setMode)
+                                    "tools" -> ToolsScreen(navigate)
+                                    "more" -> MoreScreen(navigate)
+                                    "profiles" -> ProfilesScreen(state, vm, navigate, back)
+                                    "import" ->
+                                        ImportScreen(
+                                            state,
+                                            vm,
+                                            back,
+                                            { importFile(null) },
+                                            scan,
+                                            external,
+                                            argument,
                                         )
-                                    }
+                                    "profile" ->
+                                        ProfileScreen(state, vm, navigate, back, export, confirm)
+                                    "files" ->
+                                        FilesScreen(
+                                            argument,
+                                            state,
+                                            vm,
+                                            navigate,
+                                            back,
+                                            { importFile(it) },
+                                            export,
+                                            confirm,
+                                            editExternal,
+                                        )
+                                    "groups" -> GroupsScreen(state, navigate, back)
+                                    "nodes" -> NodesScreen(argument, state, vm, back)
+                                    "providers" -> ProvidersScreen(state, vm, back)
+                                    "connections" ->
+                                        ConnectionsScreen(state, vm, navigate, back, confirm)
+                                    "connection" -> ConnectionScreen(state, vm, back, confirm)
+                                    "rules" -> RulesScreen(state, vm, back)
+                                    "dns" -> DnsScreen(state, vm, back)
+                                    "stats" -> StatsScreen(state, back)
+                                    "logs" -> LogsScreen(state, back)
+                                    "network" -> NetworkScreen(state, vm, navigate, back)
+                                    "apps" -> AppsScreen(state, vm, back)
+                                    "settings" ->
+                                        SettingsScreen(
+                                            vm,
+                                            state,
+                                            back,
+                                            { themeRevision++ },
+                                            confirm,
+                                        )
+                                    "override",
+                                    "dns-settings" ->
+                                        OverrideScreen(
+                                            state,
+                                            vm,
+                                            visibleKind == "dns-settings",
+                                            back,
+                                            confirm,
+                                        )
+                                    "about" -> AboutScreen(state, back) { navigate("license/$it") }
+                                    "license" -> AssetTextScreen(argument, vm, back)
+                                    "help" -> HelpScreen(back)
+                                    "geodata" -> GeoDataScreen(state, vm, back, importGeo)
+                                    "extension" ->
+                                        ProfileExtensionScreen(argument, state, vm, back, confirm)
+                                    "on-demand" -> OnDemandScreen(state, vm, back)
+                                    "network-check" -> NetworkProbeScreen(state, vm, back)
+                                    "update" -> UpdateScreen(back)
+                                    "backup" ->
+                                        BackupScreen(state, back, exportBackup, restoreBackup)
+                                    "backup-preview" -> BackupPreviewScreen(state, vm, back)
+                                    "keys" -> KeyScreen(vm, back)
+                                    "broken",
+                                    "crashed" ->
+                                        Column {
+                                            LucidHeader("应用状态", back)
+                                            LucidEmpty(
+                                                if (visibleKind == "broken") "安装包不完整"
+                                                else "后台服务意外退出",
+                                                "请重新打开应用，或重新安装完整 APK。",
+                                            )
+                                        }
+                                }
                             }
                         }
                     }
                 }
+                if (kind in listOf("home", "tools", "more"))
+                    BoxWithConstraints {
+                        if (maxWidth < 600.dp) TabBar(kind) { stack = listOf(it) }
+                    }
             }
-            if (kind in listOf("home", "tools", "more"))
-                BoxWithConstraints { if (maxWidth < 600.dp) TabBar(kind) { stack = listOf(it) } }
+            ClientFeedback(state, kind in listOf("home", "tools", "more")) { vm.clearError() }
         }
         confirmation?.let { (message, action) ->
             Dialog(onDismissRequest = { confirmation = null }) {
@@ -295,24 +314,6 @@ private fun AssetTextScreen(name: String, vm: ClientViewModel, back: () -> Unit)
 }
 
 @Composable
-private fun GeoDataScreen(back: () -> Unit, import: (String) -> Unit) {
-    Column {
-        LucidHeader("Geo 数据", back)
-        LucidSection("从文件导入", footer = "选择可信的 Geo 数据文件；导入后重新加载配置使其生效。") {
-            listOf(
-                    "geoip.metadb" to "GeoIP 数据",
-                    "geosite.dat" to "GeoSite 数据",
-                    "country.mmdb" to "Country 数据",
-                    "ASN.mmdb" to "ASN 数据",
-                )
-                .forEach { (file, title) ->
-                    LucidRow(title, subtitle = file, onClick = { import(file) })
-                }
-        }
-    }
-}
-
-@Composable
 private fun KeyScreen(vm: ClientViewModel, back: () -> Unit) {
     var key by remember { mutableStateOf<io.github.leenban.clash.core.model.AgeKeyPair?>(null) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -320,16 +321,9 @@ private fun KeyScreen(vm: ClientViewModel, back: () -> Unit) {
         LucidSection("生成密钥", footer = "私钥仅保留在当前页面内存中，退出后不保存。请自行安全备份。") {
             LucidRow(
                 "生成 X25519 密钥",
-                onClick = {
-                    vm.task { key = withContext(Dispatchers.IO) { Clash.genX25519KeyPair() } }
-                },
+                onClick = { vm.task { key = vm.repository.generateKey(false) } },
             )
-            LucidRow(
-                "生成混合密钥",
-                onClick = {
-                    vm.task { key = withContext(Dispatchers.IO) { Clash.genHybridKeyPair() } }
-                },
-            )
+            LucidRow("生成混合密钥", onClick = { vm.task { key = vm.repository.generateKey(true) } })
         }
         key?.let { pair ->
             LucidSection("密钥") {

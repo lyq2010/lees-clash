@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import io.github.leenban.clash.core.Clash
-import io.github.leenban.clash.core.bridge.Bridge
 import io.github.leenban.clash.core.model.*
 import io.github.leenban.clash.design.store.UiStore
 import io.github.leenban.clash.remote.FilesClient
@@ -44,6 +43,10 @@ class ClientRepository(val context: Context) {
         }
     }
 
+    suspend fun groupSummaries() = withClash {
+        queryProxyGroupNames(ui.proxyExcludeNotSelectable).map { PolicyGroup(it, queryProxyGroupSummary(it)) }
+    }
+
     suspend fun select(group: String, proxy: String) {
         check(withClash { patchSelector(group, proxy) }) { "该策略组不支持手动选择" }
     }
@@ -52,11 +55,28 @@ class ClientRepository(val context: Context) {
 
     suspend fun providers() = withClash { queryProviders().toList() }
 
+    suspend fun geoAssets(): List<GeoAsset> = withClash {
+        DiagnosticJson.format.decodeFromString(
+            kotlinx.serialization.builtins.ListSerializer(GeoAsset.serializer()),
+            queryGeoData(),
+        )
+    }
+
+    suspend fun updateGeo(id: String) = withClash { updateGeoData(id) }
+
+    suspend fun importGeo(id: String, uri: Uri) = withClash { importGeoData(id, uri.toString()) }
+
     suspend fun update(provider: Provider) = withClash {
         updateProvider(provider.type, provider.name)
     }
 
     suspend fun reload(profile: Profile) = withProfile { updateNow(profile.uuid) }
+
+    suspend fun extension(uuid: String) = withProfile { queryExtension(UUID.fromString(uuid)) }
+
+    suspend fun saveExtension(uuid: String, text: String) = withProfile {
+        saveExtension(UUID.fromString(uuid), text)
+    }
 
     suspend fun delete(profile: Profile) = withProfile { delete(profile.uuid) }
 
@@ -161,6 +181,7 @@ class ClientRepository(val context: Context) {
                 writeDocument("${profile.uuid}/config.yaml", contents)
             }
             commit(profile.uuid)
+            queryByUUID(profile.uuid)?.let { if (queryActive() == null) setActive(it) }
         } finally {
             release(profile.uuid)
         }
@@ -182,9 +203,15 @@ class ClientRepository(val context: Context) {
                 .openInputStream(files.buildDocumentUri(id))!!
                 .bufferedReader()
                 .use { reader ->
-                    val text = reader.readText()
-                    require(text.length <= 2_000_000) { "文件过大，请使用外部编辑器" }
-                    text
+                    val text = StringBuilder()
+                    val buffer = CharArray(8192)
+                    while (true) {
+                        val count = reader.read(buffer)
+                        if (count < 0) break
+                        require(text.length + count <= 2_000_000) { "文件过大，请使用外部编辑器" }
+                        text.append(buffer, 0, count)
+                    }
+                    text.toString()
                 }
         }
 
@@ -196,8 +223,11 @@ class ClientRepository(val context: Context) {
                 .use { it.write(text) }
         }
 
-    suspend fun coreVersion() =
-        withContext(Dispatchers.IO) { Bridge.nativeCoreVersion().replace('_', ' ') }
+    suspend fun coreVersion() = withClash { queryCoreVersion().replace('_', ' ') }
+
+    suspend fun generateKey(hybrid: Boolean): AgeKeyPair = withClash {
+        DiagnosticJson.format.decodeFromString(AgeKeyPair.serializer(), generateAgeKeyPair(hybrid))
+    }
 
     suspend fun appChoices(): List<AppChoice> =
         withContext(Dispatchers.IO) {

@@ -127,6 +127,18 @@ func QueryProxyGroup(name string, sortMode SortMode, uiSubtitlePattern *regexp2.
 	}
 }
 
+func QueryProxyGroupSummary(name string) *ProxyGroup {
+	p := tunnel.Proxies()[name]
+	if p == nil {
+		return nil
+	}
+	g, ok := p.Adapter().(outboundgroup.ProxyGroup)
+	if !ok {
+		return nil
+	}
+	return &ProxyGroup{Type: g.Type().String(), Now: g.Now(), Proxies: []*Proxy{}}
+}
+
 func PatchSelector(selector, name string) bool {
 	p := tunnel.Proxies()[selector]
 

@@ -43,8 +43,11 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
         install(TimeZoneModule(self))
         install(SuspendModule(self))
 
+        val onDemand = OnDemandPolicy(self)
+
         try {
-            tun.open()
+            StatusProvider.networkBypassed = onDemand.shouldBypass()
+            if (!StatusProvider.networkBypassed) tun.open()
 
             while (isActive) {
                 val quit = select<Boolean> {
@@ -57,6 +60,11 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
                         true
                     }
                     network.onEvent { n ->
+                        val bypass = onDemand.shouldBypass()
+                        if (bypass != StatusProvider.networkBypassed) {
+                            if (bypass) TunModule.requestStop() else tun.open()
+                            StatusProvider.networkBypassed = bypass
+                        }
                         if (Build.VERSION.SDK_INT in 22..28) @TargetApi(22) {
                             setUnderlyingNetworks(n?.let { arrayOf(it) })
                         }
@@ -86,6 +94,7 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
         if (StatusProvider.serviceRunning)
             return stopSelf()
 
+        StatusProvider.currentProfile = null
         StatusProvider.serviceRunning = true
 
         StaticNotificationModule.createNotificationChannel(this)
@@ -101,9 +110,12 @@ class TunService : VpnService(), CoroutineScope by CoroutineScope(Dispatchers.De
     }
 
     override fun onDestroy() {
+        Log.d("TunService: stopping")
         TunModule.requestStop()
 
         StatusProvider.serviceRunning = false
+        StatusProvider.networkBypassed = false
+        StatusProvider.currentProfile = null
 
         sendClashStopped(reason)
 

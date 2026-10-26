@@ -8,17 +8,17 @@ import io.github.leenban.clash.service.model.AccessControlMode
 import java.util.*
 
 class ServiceStore(context: Context) {
-    private val store = Store(
-        PreferenceProvider
-            .createSharedPreferencesFromContext(context)
-            .asStoreProvider()
-    )
+    private val preferences = PreferenceProvider.createSharedPreferencesFromContext(context)
+    private val store = Store(preferences.asStoreProvider())
 
-    var activeProfile: UUID? by store.typedString(
-        key = "active_profile",
-        from = { if (it.isBlank()) null else UUID.fromString(it) },
-        to = { it?.toString() ?: "" }
-    )
+    var activeProfile: UUID?
+        get() = preferences.getString("active_profile", null)
+            ?.takeIf { it.isNotBlank() }?.let(UUID::fromString)
+        set(value) {
+            check(preferences.edit().putString("active_profile", value?.toString().orEmpty()).commit()) {
+                "无法保存当前配置选择"
+            }
+        }
 
     var bypassPrivateNetwork: Boolean by store.boolean(
         key = "bypass_private_network",
@@ -65,4 +65,8 @@ class ServiceStore(context: Context) {
         key = "dynamic_notification",
         defaultValue = true
     )
+
+    var onDemandEnabled by store.boolean("on_demand_enabled", false)
+    var onDemandSsids by store.stringSet("on_demand_ssids", emptySet())
+    var onDemandCellular by store.boolean("on_demand_cellular", false)
 }

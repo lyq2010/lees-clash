@@ -50,15 +50,15 @@ func (t *remoteTun) querySocketUid(protocol int, source, target string) int {
 
 func (t *remoteTun) close() {
 	_ = t.limit.Acquire(context.TODO(), 4)
-	defer t.limit.Release(4)
-
 	t.closed = true
+	app.ApplyTunContext(nil, nil)
+	// Retire JNI callbacks before closing the listener. Close may join workers
+	// which must still be able to enter, observe closed, and return.
+	t.limit.Release(4)
 
 	if t.closer != nil {
 		_ = t.closer.Close()
 	}
-
-	app.ApplyTunContext(nil, nil)
 
 	C.release_object(t.callback)
 }

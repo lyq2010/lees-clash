@@ -1,81 +1,52 @@
 # Lee’s Clash 开发交接
 
-更新日期：2026-10-26。当前为可构建、可运行的开发初版，未达到完整产品与正式发版验收标准。逐项状态见 [开发矩阵](DEVELOPMENT-MATRIX.md)，证据见 [验证记录](VERIFICATION.md)。
+更新日期：2026-10-27。当前为开发版，完整产品与正式发版尚未全部验收；逐项见 [开发矩阵](DEVELOPMENT-MATRIX.md)。
 
-## 当前工程
+## 工程与协作边界
 
-- 工作目录：`D:\Desktop\codex\lees-clash`；私有远程：`https://github.com/lyq2010/lees-clash`；分支 `main`；GitHub Actions 关闭。
-- 应用名称 Lee’s Clash，applicationId / 自有 Kotlin namespace：`io.github.leenban.clash`；最低 API 26，target API 35，版本 `0.1.0`，versionCode `1`。
-- Kotlin / Compose 应用层、Go 内核、C/JNI 桥接；自有 Go module 已改为 `lees`。
-- CMFA `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`；mihomo `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`。完整内核作为源码快照纳入仓库，不依赖实际 Git 子模块检出。来源见 [UPSTREAM.md](UPSTREAM.md)。
-- Geo 数据随仓保存，构建校验发布者 SHA-256，不再下载浮动 latest；更新应用时保留用户自行导入的数据。
-- 未导入上游签名密钥；本地独立密钥在 `.secrets/release.p12`，属性在 `signing.properties`，均被 Git 忽略。必须另行离线备份，凭据不得提交。
+- 当前目录 `D:\Desktop\codex\lees-clash`，私有远程 `lyq2010/lees-clash`，main。
+- Kotlin / Compose 应用层、Go 内核、少量 C/JNI；自有标识 `io.github.leenban.clash`，最低 API26、target35，0.1.0 / versionCode1。
+- CMFA `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`，mihomo `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`，源码快照与固定 Geo 随仓保存。来源 / 许可见 UPSTREAM、NOTICE。
+- 首页布局与 Lucid 风格保持；配置名单行，三角紧跟标题，长名截断；不加长按提示。成功用底部短 Toast，错误 / 延迟进度用不改变布局的顶部浮层，长错误可展开模态详情；危险操作二次确认。
+- **推送、标签和发布分别按明确授权执行；未授权不删除文件。** 私有源码与发版现均在本仓；不再建立公开发版仓。
+- 真实机场更新受订阅开关影响，由用户后测；禁止继续用该接口做自动回归。WebDAV 不做。
 
-**推送约束：只有收到明确推送指令后才执行 `git push`；本地开发、验证与提交不自动推送。**
+## 本轮实现
 
-## 已实现的开发代码
+- 配置导入 / 更新 / 编辑的真实终态反馈，停机策略与规则浏览，选择预存；修复 kaidl 取消后迟到 Parcel 回复（本地 MIT 源码补丁）。
+- 五类 Geo 单项 / 全部在线更新及文件导入，流式下载、格式校验、失败保留原文件。
+- 本地流式 ZIP 备份 / 预览 / 合并恢复；规模、路径、配置和 Geo 校验，重复配置跳过，失败回滚受影响内容。备份不加密，含订阅链接与私钥。
+- 独立配置扩展、结构化规则 / 代理 / 分组、高级 JSON 和 QuickJS 配置转换。脚本 VM 临时创建、32MB 堆 / 500ms，不提供宿主网络与文件能力。
+- 默认关闭的按需网络；手动 IP / HTTP / 强制直连检查及可选本地20条历史；订阅流量 / 到期展示；文件重命名与外部编辑返回校验。
+- 版本 / age 密钥调用转至服务，UI 无第二份 Go 映射；分组摘要不加载所有节点，进入组才读节点；页面可见采样、流式 / 有界读入。
+- 修复 TUN 关闭锁等待、启动 / 停止广播竞争、网络事件覆盖和服务死亡重连。服务停止通过 stop latch 协调，不能简单替换为 stopService。
+- Music 协议的更新器已移植，使用平台 HTTPS、有界更新源、流式 APK、镜像一致性 / SHA / 包名 / 版本 / 签名验证及用户安装授权；手动检查，不启动自动请求。
 
-- 统一 Lucid 浅深色组件、矢量图标、首页 / 工具 / 更多、配置、策略、连接、规则、DNS、设置、覆写、文件、日志和关于页。
-- Manifest 中的页面入口均接入 Compose；原 Design/XML 等旧实现仍保留，尚未进行文件删除。
-- Repository / ViewModel / StateFlow 接入原服务；新增诊断接口经 Go → JNI → Binder 返回有界分页 JSON，流量使用完整 64 位值。
-- 新增诊断 Binder 方法使用同步事务，调用侧通过 `withClash(Dispatchers.IO)` 在后台执行。
-- 关闭动画时重现既有异步 Binder 的 Parcel/SIGABRT。已将 kaidl 1.15 的三个运行库源文件纳入 service，修复取消后迟到回调写入已回收 reply 的路径；KSP 编译器仍用 1.15。来源及 MIT 许可见 UPSTREAM / NOTICE；禁止再同时引入原版运行库 AAR。
-- 首页直接显示单行配置名，长名称省略；使用独立矢量箭头，不添加“当前配置”标签。新增统一短动效与自有猫形信号图标，规范见 UI-DESIGN。
-- 连接与规则分页由 DiagnosticPager 串行管理；刷新保留已加载范围，搜索使旧请求失效。详情与返回列表保留对应状态，后台停止轮询，恢复后重读当前页面。
-- 原生版本信息改为固定来源元数据，避免依赖不存在的子模块 Git 分支。
-- 配置导入改为明确的进度与完成事件，成功返回列表并显示新条目，失败保留输入。手动更新直接在列表执行，并等待服务返回真实终态；`IProfileManager.updateNow` 与自动后台 Worker 的 `update` 调度分开。
-- 统一操作反馈、进行中去重和错误保留。页面数据先在后台读取，再原子发布，禁止在 StateFlow.update 的可重试函数中调用挂起 RPC。
-- 停机时服务从受控的 importedDir 读取配置 / 本地提供器缓存，内部调用 Go 只读预览；不加载代理服务、不发起网络请求。手动策略预选存入 SelectionDao，启动后沿用。
-- 首页保留原有“通用 / 网络 / 覆写”与彩色卡片布局，仅收敛工具 / 更多中的重复入口，见 UI-DESIGN。
-
-## 本地构建
-
-PowerShell 7 执行：
+## 本地构建与验证
 
 ```powershell
 .\scripts\Build.ps1 -Tasks ':app:assembleAlphaDebug',':app:assembleAlphaDebugAndroidTest',':app:testAlphaDebugUnitTest'
+.\scripts\Build.ps1 -Tasks ':app:assembleAlphaRelease' -Abi all
 ```
 
-脚本在启动工具前设置当前会话 TEMP/TMP、Gradle、Android 和 Go 缓存路径，不修改机器或用户的持久环境。
+脚本显式设置 TEMP / TMP、Gradle / Kotlin / Android / Go 缓存到 I 盘。JDK21、SDK35、NDK29.0.14206865、CMake3.22.1、定制 Go1.26.10。单 ABI Debug 是 testOnly，使用 `adb install -r -t`。
 
-- JDK 21：`I:\DevCache\jdk21`；定制 Go 1.26.10：`I:\DevCache\go1.26`。
-- SDK：`I:\DevCache\android-sdk`，API 35 / build-tools 35.0.0 / NDK 29.0.14206865 / CMake 3.22.1。
-- Build.ps1 已将后续 Gradle 项目缓存指向 I 盘；先前的 `.gradle`、`.kotlin` 目录未删除。Kotlin 项目持久缓存位置仍需统一核实。
-- 单 ABI Debug APK 在 `app/build/intermediates/apk/alpha/debug/`；是 testOnly 包，安装需要 `adb install -r -t`。
-- `ndk.dir` 是当前 Go 构建插件初始化的兼容项；移除它需要先处理插件取得 NDK 的时序，不能直接删除配置。
+- MuMu 实例3，`127.0.0.1:16480`，API35 x86_64；emulator-5560 是同一实例，不能当成第二设备。
+- 官方无窗口 API26 / API37 AVD 用于兼容验证，数据在 I 盘。用户接受 MuMu 作为本机设备；不冒称已验证物理 ARM 或真实蜂窝。
+- 主机 fixture `scripts/local-fixture.py` 只监听回环，HTTP18080 / SOCKS18081 / DNS TCP13053；ADB reverse 同三端口。测试在 finally 恢复选中配置与设置，保留测试配置。
+- MuMu 完整24项通过，含 UI 无第二内核映射；安全区调整后7项再验证通过；JVM17项、发版脚本11项、Go宿主10项、Android脚本限制测试通过。
+- API26核心9项通过；API37核心10项通过，Compose页面用例因 Espresso InputManager 反射不兼容失败。最终 UI 调整、四 ABI / R8 / 签名和实际转发均通过，包哈希见 VERIFICATION。
+- B02 已解除：固定原版独立构建、安装、导入、VPN与本机实际转发均通过。原版包保留但停止。
+- Debug 单次暖启动样本 UI93085KiB、后台113443KiB PSS；仅作样本，不声称固定峰值或严格改善百分比。
 
-## 已执行验证
+## 签名与 Actions
 
-- 设计模块、完整应用 Kotlin、x86_64 原生内核、Debug APK 和 AndroidTest APK 构建通过。
-- Go 诊断与停机预览共 5 项测试通过；Kotlin 单元测试 6 项通过（格式化 1 项、分页 4 项、诊断响应 1 项）。
-- 当前 MuMu 11 项测试通过：Binder 取消 / 重复回复 2 项，首页与动效 2 项，65 连接分页 1 项，真实生命周期 1 项，配置 / 原生网络 2 项，导入 / 更新 / 编辑保存 / 停机浏览 2 项，导航截图 1 项。
-- 当前版本关闭 Android 动画时长后的导航与重建回归通过；结束后恢复原值 0.5。此前 Binder 修复另有连续 3 次通过记录。
-- 网络用例覆盖 VPN 启动、选择策略、规则检索、DNS / TTL、SOCKS 转发、活动连接、单连接关闭和上下行统计。测试代码不使用真实订阅或外部代理服务器。
-- 六张自动化截图与正常前台首页截图存于 `docs/verification/`。测试结束恢复原活动配置，服务已停止；测试配置保留，不访问真实订阅。
-- 测试服务与本轮端口映射均已关闭；MuMu、应用、测试 APK 和本地测试配置保留。`UI workflow ...`、`UI retry ...` 是本地回归生成的配置，未擅自删除。
+2026-10-27 重新生成 Clash 独立 RSA4096，alias lees-clash；没有复用 Music / Toolbox 密钥。当前 `.secrets/lees-clash-release-20261027.p12` 与 signing.properties 已忽略。公开证书指纹见 tools/release/signing-certificate.sha256。
 
-## 验证设备与复现
+备份 `E:\家用资料\恢复码\lees-release-backup\lees-clash\independent-20261027` 已逐字节核对；旧签名单独备份并保留。八项 Secrets 已获授权并配置成功。Actions 已开启、仅允许 GitHub 官方动作，四个旧工作流已停用；新工作流已纳入本次提交，尚未运行。细节及手动流程见 RELEASE。
 
-MuMu 实例 3“开发测试”，ADB `127.0.0.1:16480`，Android 15 / API 35，ABI `x86_64,arm64-v8a,x86`，1080×1920。
+## 尚未完成
 
-复现网络测试需要先启动 `scripts/local-fixture.py`，并为该实例建立 TCP 18080 / 18081 / 13053 的 adb reverse。三个服务只监听主机 127.0.0.1。测试应用需要 VPN 与通知权限。
+真实机场更新由用户后测；完整平板 / 横屏 / 大字体、按需真实切换、Geo成功恢复与SAF、相机扫码 / 外部编辑器、加密配置解密、磁贴 / 快捷方式仍保留待验证。真实蜂窝 / 非x86运行需要相应条件。远程完整发版与镜像写入清理等待正式发布授权；公开分发 GPL 对应源码安排仍未解决。
 
-测试类：`BinderCancellationTest`、`HomeUiTest`、`DiagnosticPagingTest`、`DiagnosticLifecycleTest`、`NativeIntegrationTest`、`ProfileWorkflowTest`、`NavigationSmokeTest`；通过 `androidx.test.runner.AndroidJUnitRunner` 执行。每次测试前同样设置 TEMP/TMP 为 I 盘。
-
-```powershell
-$env:TEMP='I:\DevCache\Temp'; $env:TMP=$env:TEMP
-& 'I:\Android\Sdk\platform-tools\adb.exe' -s 127.0.0.1:16480 shell am instrument -w -e class io.github.leenban.clash.lucid.DiagnosticPagingTest io.github.leenban.clash.test/androidx.test.runner.AndroidJUnitRunner
-```
-
-`DiagnosticPagingTest` 使用 Compose 测试时钟推进前台定时刷新；`DiagnosticLifecycleTest` 使用真实 Android 时钟，并保留已取得的 Binder 来检查后台内核。应用隐藏时主动解除 UI 服务绑定，后台测试不能通过 Repository 等待重新绑定，否则会改变或阻塞被测流程。
-
-## 下一阶段优先事项
-
-1. 扩展长期运行、服务进程死亡及高并发分页压力验证；已有 65 连接分页、取消竞争与前后台恢复回归通过。
-2. 补齐文件重命名、Geo 数据格式校验及高级功能完整映射；导入 / 手动更新 / 编辑保存已有界面回归，继续验证二维码、外部提供器、自动后台更新、覆写保存、日志与加密配置。
-3. 将 UI 参考逐屏对照推进到视觉验收，补平板、横屏、大字体、Android 8 和异常 / 权限拒绝矩阵。
-4. 完成签名 Release、R8/JNI 和其余 ABI 构建与运行验证；不能用 Debug 结果替代。
-5. 形成旧实现、资源、工作流与品牌元数据的精确删除清单；取得授权前不删除。重写隐私 / 贡献等尚未迁移的文档。
-6. 公开发版仓、发布流水线尚未建立；Actions 维持关闭。APK-only 分发的 GPL 源码提供义务仍未解决，保留 LICENSE / NOTICE。
-
-原版仅进行了首次构建尝试，因当时缺少 NDK 失败。当前 NDK 已安装、改版已成功构建；首次缺 NDK 的问题已经解除，B02 状态为待验证。原版尚未重新进行干净构建、安装及运行对照，是否存在其他构建兼容问题需实际重试确认；不能声称已验证与原版行为完全等价。
+旧文件未删除；四个已停用工作流候选见 CLEANUP-CANDIDATES，XML / 资源有编译引用，不能直接目录删除。测试前私有数据备份 `I:\DevCache\lees-clash-private-preverification-20261026.tar`，不纳入 Git；不要删除用户配置。临时 fixture / reverse / 自建模拟器与原始测试产物已清理，验证JSON摘要保留，见 VERIFICATION。

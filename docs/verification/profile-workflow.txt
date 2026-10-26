@@ -1,5 +1,0 @@
-io.github.leenban.clash.lucid.ProfileWorkflowTest:..
-
-Time: 9.244
-
-OK (2 tests)

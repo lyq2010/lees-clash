@@ -39,10 +39,21 @@ type fetchHeader struct {
 }
 
 func openUrl(ctx context.Context, url string) (io.ReadCloser, fetchHeader, error) {
-	response, err := clashHttp.HttpRequest(ctx, url, http.MethodGet, http.Header{"User-Agent": {"ClashMetaForAndroid/" + app.VersionName()}}, nil)
+	userAgent := "clash.meta/" + app.VersionName()
+	var override struct {
+		UserAgent string `json:"global-ua"`
+	}
+	if json.Unmarshal([]byte(ReadOverride(OverrideSlotPersist)), &override) == nil && override.UserAgent != "" {
+		userAgent = override.UserAgent
+	}
+	response, err := clashHttp.HttpRequest(ctx, url, http.MethodGet, http.Header{"User-Agent": {userAgent}}, nil)
 
 	if err != nil {
 		return nil, fetchHeader{}, err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		response.Body.Close()
+		return nil, fetchHeader{}, fmt.Errorf("订阅服务器返回 HTTP %d", response.StatusCode)
 	}
 
 	return response.Body, fetchHeader{

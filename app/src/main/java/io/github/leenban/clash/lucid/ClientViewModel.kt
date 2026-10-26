@@ -36,6 +36,7 @@ class ClientViewModel(application: Application) :
     private var activeTasks = 0
     private val operations = linkedMapOf<Long, String>()
     private var pageVersion = 0
+    private var profileInitialized = false
     private val json = DiagnosticJson.format
     private val connections =
         DiagnosticPager<ConnectionInfo>({ it.id }) { query, offset ->
@@ -54,6 +55,15 @@ class ClientViewModel(application: Application) :
 
     fun clearError() {
         mutable.update { it.copy(error = null) }
+    }
+
+    fun backupPreview(uri: String, preview: io.github.leenban.clash.service.backup.BackupPreview) {
+        mutable.update { it.copy(backupUri = uri, backupPreview = preview) }
+        openRoute("backup-preview")
+    }
+
+    fun settingsRestored() {
+        mutable.update { it.copy(settingsRevision = it.settingsRevision + 1) }
     }
 
     fun clearNotice(id: Long) {
@@ -133,12 +143,34 @@ class ClientViewModel(application: Application) :
         mutable.update { it.copy(error = message, starting = false) }
     }
 
+    fun updateGeo(id: String? = null) {
+        if (mutable.value.updatingGeo != null) return
+        val assets = mutable.value.geoAssets.filter { id == null || it.id == id }
+        if (assets.isEmpty()) return
+        mutable.update { it.copy(updatingGeo = id ?: "all") }
+        task(success = "Geo 数据更新完成，重新启动服务后生效") {
+            try {
+                for ((index, asset) in assets.withIndex()) {
+                    mutable.update {
+                        it.copy(operation = "正在下载并校验 ${asset.name}（${index + 1}/${assets.size}）")
+                    }
+                    repository.updateGeo(asset.id)
+                    val current = repository.geoAssets()
+                    mutable.update { it.copy(geoAssets = current) }
+                }
+            } finally {
+                mutable.update { it.copy(updatingGeo = null) }
+            }
+        }
+    }
+
     fun starting() {
         mutable.update { it.copy(starting = true, error = null) }
     }
 
     suspend fun navigate(destination: String) {
         searchJob?.cancel()
+        if (destination.startsWith("extension/")) mutable.update { it.copy(extensionJson = null) }
         if (destination.startsWith("connection/") && destination != route)
             mutable.update { it.copy(connection = null, connectionEnded = false) }
         route = destination
@@ -217,24 +249,30 @@ class ClientViewModel(application: Application) :
         refreshMutex.withLock {
             try {
                 val running = Remote.broadcasts.clashRunning
-                val active = repository.active()
                 val previous = mutable.value
+                val active =
+                    if (forceMode || !profileInitialized) repository.active() else previous.active
+                profileInitialized = true
                 val mode =
                     if (
-                        running ||
+                        (running && route == "home") ||
                             forceMode ||
+                            running != previous.running ||
                             active?.uuid != previous.active?.uuid ||
                             active?.updatedAt != previous.active?.updatedAt
                     )
                         repository.mode()
                     else previous.mode
                 val traffic =
-                    if (running)
+                    if (
+                        running &&
+                            (route == "home" || route == "stats" || route.startsWith("connection"))
+                    )
                         json.decodeFromString(
                             TrafficStats.serializer(),
                             repository.diagnostic("traffic"),
                         )
-                    else TrafficStats()
+                    else if (running) previous.traffic else TrafficStats()
                 mutable.update {
                     it.copy(running = running, active = active, mode = mode, traffic = traffic)
                 }
@@ -279,6 +317,10 @@ class ClientViewModel(application: Application) :
         val screen = requestedRoute.substringBefore('/')
         val argument = android.net.Uri.decode(requestedRoute.substringAfter('/', ""))
         when (screen) {
+            "extension" -> {
+                val value = repository.extension(argument)
+                if (route == requestedRoute) mutable.update { it.copy(extensionJson = value) }
+            }
             "profiles" -> {
                 val value = repository.profiles()
                 if (route == requestedRoute) mutable.update { it.copy(profiles = value) }
@@ -288,7 +330,7 @@ class ClientViewModel(application: Application) :
                 if (route == requestedRoute) mutable.update { it.copy(editingProfile = value) }
             }
             "groups" -> {
-                val value = repository.groups()
+                val value = repository.groupSummaries()
                 if (route == requestedRoute) mutable.update { it.copy(groups = value) }
             }
             "nodes" -> {
@@ -320,6 +362,10 @@ class ClientViewModel(application: Application) :
             "providers" -> {
                 val value = repository.providers()
                 if (route == requestedRoute) mutable.update { it.copy(providers = value) }
+            }
+            "geodata" -> {
+                val value = repository.geoAssets()
+                if (route == requestedRoute) mutable.update { it.copy(geoAssets = value) }
             }
             "apps" -> {
                 val value = repository.appChoices()
