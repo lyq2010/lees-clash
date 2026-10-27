@@ -3,7 +3,7 @@ name: Lee's Clash private release
   workflow_dispatch:
     inputs:
       tag:
-        description: 私有源码版本标签，例如 v0.1.0（补丁号达到 50 时进位）
+        description: 私有源码版本标签，例如 v0.0.1（补丁号达到 50 时进位）
         required: true
         type: string
 permissions:
@@ -87,7 +87,8 @@ jobs:
       - name: Publish immutable assets in this private repository
         if: steps.existing.outputs.published != 'true'
         run: |
-          gh release create "$TAG" artifacts/release/* --repo "$RELEASE_REPOSITORY" --target "$(git rev-parse HEAD)" --draft --latest=false --title "Lee’s Clash ${TAG#v}" --notes-file docs/RELEASE_NOTES.md
+          python3 -c 'import json, os; from pathlib import Path; Path(os.environ["RUNNER_TEMP"], "release-notes.md").write_text(json.loads(Path("artifacts/release/latest-lees-clash.json").read_text())["notes"], encoding="utf-8")'
+          gh release create "$TAG" artifacts/release/* --repo "$RELEASE_REPOSITORY" --target "$(git rev-parse HEAD)" --draft --latest=false --title "Lee’s Clash ${TAG#v}" --notes-file "$RUNNER_TEMP/release-notes.md"
           gh release edit "$TAG" --repo "$RELEASE_REPOSITORY" --draft=false --latest=false
       - name: Remove ephemeral signing material
         if: always()

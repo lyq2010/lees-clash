@@ -36,7 +36,10 @@ adb -s "$serial" install -r -t "$(find app/build/intermediates/apk/androidTest/a
 adb -s "$serial" shell appops set io.github.leenban.clash ACTIVATE_VPN allow
 adb -s "$serial" shell pm grant io.github.leenban.clash android.permission.POST_NOTIFICATIONS
 for port in 18080 18081 13053; do adb -s "$serial" reverse "tcp:$port" "tcp:$port"; done
-classes=(NativeIntegrationTest BinderCancellationTest HomeUiTest FeedbackUiTest ProfileWorkflowTest DiagnosticPagingTest DiagnosticLifecycleTest NavigationSmokeTest ExtendedUiVerificationTest DeviceFeatureVerificationTest MemoryRegressionTest LocalBackupVerificationTest ProfileExtensionVerificationTest NetworkFeatureVerificationTest AdvancedUiVerificationTest StressVerificationTest)
+# JUnit method order is unspecified; the integration suite needs this local fixture first.
+adb -s "$serial" shell am instrument -w -e class 'io.github.leenban.clash.lucid.NativeIntegrationTest#prepareLocalProfile' io.github.leenban.clash.test/androidx.test.runner.AndroidJUnitRunner | tee "$RUNNER_TEMP/clash-verification/prepare.txt"
+grep -Eq '^OK \([0-9]+ tests?\)' "$RUNNER_TEMP/clash-verification/prepare.txt"
+classes=(NativeIntegrationTest BinderCancellationTest HomeUiTest FeedbackUiTest ProfileWorkflowTest DiagnosticPagingTest DiagnosticLifecycleTest NavigationSmokeTest ExtendedUiVerificationTest DeviceFeatureVerificationTest MemoryRegressionTest LocalBackupVerificationTest ProfileExtensionVerificationTest NetworkFeatureVerificationTest AdvancedUiVerificationTest StressVerificationTest EncryptedProfileVerificationTest SystemEntryVerificationTest SystemDocumentWorkflowTest OverrideCombinationsVerificationTest SubscriptionDetailsVerificationTest DnsFailureVerificationTest)
 for class in "${classes[@]}"; do
   log="$RUNNER_TEMP/clash-verification/$class.txt"
   adb -s "$serial" shell am instrument -w -e class "io.github.leenban.clash.lucid.$class" io.github.leenban.clash.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"

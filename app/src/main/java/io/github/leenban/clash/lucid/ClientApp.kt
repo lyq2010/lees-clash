@@ -185,7 +185,7 @@ fun ClientApp(
                                     "rules" -> RulesScreen(state, vm, back)
                                     "dns" -> DnsScreen(state, vm, back)
                                     "stats" -> StatsScreen(state, back)
-                                    "logs" -> LogsScreen(state, back)
+                                    "logs" -> LogsScreen(state, vm, back)
                                     "network" -> NetworkScreen(state, vm, navigate, back)
                                     "apps" -> AppsScreen(state, vm, back)
                                     "settings" ->

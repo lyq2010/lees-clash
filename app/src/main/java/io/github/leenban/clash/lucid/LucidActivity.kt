@@ -115,6 +115,10 @@ open class LucidActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        importTarget = savedInstanceState?.getString("document.importTarget")
+        geoTarget = savedInstanceState?.getString("document.geoTarget")
+        exportTarget = savedInstanceState?.getString("document.exportTarget")
+        externalEditTarget = savedInstanceState?.getString("document.externalEditTarget")
         WindowCompat.setDecorFitsSystemWindows(window, false)
         @Suppress("DEPRECATION")
         window.statusBarColor = android.graphics.Color.TRANSPARENT
@@ -126,6 +130,14 @@ open class LucidActivity : ComponentActivity() {
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
         render(initialRoute())
         setupShortcuts()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("document.importTarget", importTarget)
+        outState.putString("document.geoTarget", geoTarget)
+        outState.putString("document.exportTarget", exportTarget)
+        outState.putString("document.externalEditTarget", externalEditTarget)
+        super.onSaveInstanceState(outState)
     }
 
     private fun render(route: String) {

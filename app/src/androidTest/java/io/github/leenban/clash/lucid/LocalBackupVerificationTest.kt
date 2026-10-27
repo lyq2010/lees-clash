@@ -10,6 +10,7 @@ import io.github.leenban.clash.remote.StatusClient
 import io.github.leenban.clash.service.backup.BackupManifest
 import io.github.leenban.clash.util.*
 import java.io.File
+import java.security.MessageDigest
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -22,6 +23,23 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class LocalBackupVerificationTest {
+    private fun geoDigests(archive: File): Map<String, String> = buildMap {
+        ZipInputStream(archive.inputStream()).use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val entry = input.nextEntry ?: break
+                if (!entry.name.startsWith("geo/")) continue
+                val digest = MessageDigest.getInstance("SHA-256")
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+                put(entry.name, digest.digest().joinToString("") { "%02x".format(it) })
+            }
+        }
+    }
+
     @Test(timeout = 240000)
     fun streamingExportMergeRestoreAndRejectedArchivesPreserveData() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -34,6 +52,22 @@ class LocalBackupVerificationTest {
             val format = DiagnosticJson.format
             try {
                 repo.restoreSelection(context, original)
+                val source = repo.profiles().first { p -> p.name == "Local integration test" }
+                if (repo.geoAssets().first { it.id == "geoip" }.size == 0L) {
+                    // Fresh installs bundle MMDB instead of DAT. Seed a loopback-only DAT
+                    // through the same content provider used by local Geo file import.
+                    val fixture = repo.files.buildDocumentUri("${source.uuid}/providers/verification-geoip.dat")
+                    try {
+                        context.contentResolver.openOutputStream(fixture, "wt")!!.use { output ->
+                            InstrumentationRegistry.getInstrumentation().context.assets.open("geoip-fixture.dat").use {
+                                it.copyTo(output)
+                            }
+                        }
+                        repo.importGeo("geoip", fixture)
+                    } finally {
+                        withProfile { release(source.uuid) }
+                    }
+                }
                 val before = repo.profiles().map { p -> p.uuid }.toSet()
                 val archive = root.resolve("backup.zip")
                 repo.exportBackup(Uri.fromFile(archive))
@@ -43,7 +77,6 @@ class LocalBackupVerificationTest {
 
                 // Rewrite only the fixture entry to a new UUID to test a real import while
                 // leaving every existing profile untouched. Retain the imported fixture.
-                val source = repo.profiles().first { p -> p.name == "Local integration test" }
                 val previousImport =
                     repo.profiles().firstOrNull { p -> p.name == "Verification restored backup" }
                 val targetId = previousImport?.uuid ?: UUID.randomUUID()
@@ -137,6 +170,20 @@ class LocalBackupVerificationTest {
                 assertEquals(geo, repo.geoAssets())
                 assertFalse(root.parentFile!!.resolve("outside").exists())
                 assertEquals(!vpn, repo.ui.enableVpn)
+
+                // Exercise successful installation of every Geo format, then export again to
+                // verify the restored bytes, settings and existing profiles survived the merge.
+                val expectedGeo = geoDigests(archive)
+                assertEquals(setOf("geo/mmdb", "geo/geoip", "geo/geosite", "geo/asn", "geo/mrs"), expectedGeo.keys)
+                val full = repo.restoreBackup(Uri.fromFile(archive))
+                assertEquals(0, full.restored)
+                assertEquals(before.size, full.skipped)
+                assertEquals(vpn, repo.ui.enableVpn)
+                assertEquals(ids, repo.profiles().map { p -> p.uuid }.toSet())
+                assertEquals(original?.uuid, repo.active()?.uuid)
+                val restoredArchive = root.resolve("restored.zip")
+                repo.exportBackup(Uri.fromFile(restoredArchive))
+                assertEquals(expectedGeo, geoDigests(restoredArchive))
             } finally {
                 withContext(NonCancellable) {
                     repo.ui.enableVpn = vpn

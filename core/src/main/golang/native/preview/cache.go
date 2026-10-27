@@ -17,8 +17,10 @@ var cache struct {
 }
 
 // Reuse immutable parsed data across group queries. Local file updates invalidate it.
-func Read(path string) (*Profile, error) {
+func Read(path, secretKey string) (*Profile, error) {
 	hash := sha256.New()
+	// A key change must invalidate decrypted cached data even if the file is unchanged.
+	fmt.Fprintf(hash, "%s\x00", secretKey)
 	err := filepath.WalkDir(path, func(name string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -42,7 +44,7 @@ func Read(path string) (*Profile, error) {
 	if _, err := os.Stat(filepath.Join(path, "config.yaml")); err != nil {
 		return nil, fmt.Errorf("无法读取所选配置")
 	}
-	profile, err := readProfile(path)
+	profile, err := readProfile(path, secretKey)
 	if err != nil {
 		return nil, err
 	}

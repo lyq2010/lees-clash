@@ -2,7 +2,9 @@
 package preview
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -10,6 +12,8 @@ import (
 	"time"
 
 	"github.com/dlclark/regexp2"
+	"github.com/metacubex/age"
+	"github.com/metacubex/age/armor"
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/common/yaml"
 	"github.com/metacubex/mihomo/config"
@@ -74,10 +78,24 @@ func providerNodes(path string, mapping map[string]any) []map[string]any {
 	return content.Proxies
 }
 
-func readProfile(path string) (*Profile, error) {
+func readProfile(path, secretKey string) (*Profile, error) {
 	data, err := os.ReadFile(filepath.Join(path, "config.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("无法读取所选配置")
+	}
+	if bytes.HasPrefix(data, []byte(armor.Header)) {
+		identities, err := age.ParseIdentities(strings.NewReader(secretKey))
+		if err != nil {
+			return nil, fmt.Errorf("所选配置密钥无效: %w", err)
+		}
+		reader, err := age.Decrypt(armor.NewReader(bytes.NewReader(data)), identities...)
+		if err != nil {
+			return nil, fmt.Errorf("所选配置无法解密: %w", err)
+		}
+		data, err = io.ReadAll(reader)
+		if err != nil {
+			return nil, fmt.Errorf("所选配置无法解密: %w", err)
+		}
 	}
 	raw, err := config.UnmarshalRawConfig(data)
 	if err != nil {

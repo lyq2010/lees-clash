@@ -6,6 +6,7 @@ import io.github.leenban.clash.core.Clash
 import io.github.leenban.clash.core.bridge.Bridge
 import io.github.leenban.clash.core.model.*
 import io.github.leenban.clash.service.data.Selection
+import io.github.leenban.clash.service.data.ImportedDao
 import io.github.leenban.clash.service.data.SelectionDao
 import io.github.leenban.clash.service.remote.IClashManager
 import io.github.leenban.clash.service.remote.ILogObserver
@@ -86,9 +87,11 @@ class ClashManager(private val context: Context) :
         request: JsonObject = buildJsonObject {},
     ): String {
         val current = checkNotNull(store.activeProfile) { "请先选择配置" }
+        val secret = runBlocking { ImportedDao().queryByUUID(current)?.ageSecretKey }.orEmpty()
         val payload =
             JsonObject(
                 request +
+                    ("secretKey" to JsonPrimitive(secret)) +
                     ("path" to JsonPrimitive(context.importedDir.resolve(current.toString()).path))
             )
         return DiagnosticJson.checked(Bridge.nativeDiagnostics(operation, payload.toString()))

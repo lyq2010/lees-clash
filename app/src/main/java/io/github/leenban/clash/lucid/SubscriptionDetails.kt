@@ -15,12 +15,14 @@ fun SubscriptionDetails(profile: Profile) {
             LucidRow("上传", value = formatBytes(profile.upload))
             LucidRow("下载", value = formatBytes(profile.download))
             if (profile.total > 0) {
+                val afterUpload = profile.total - profile.upload.coerceIn(0L, profile.total)
+                val remaining = afterUpload - profile.download.coerceIn(0L, afterUpload)
                 LucidRow("总量", value = formatBytes(profile.total))
                 LucidRow(
                     "剩余",
                     value =
                         formatBytes(
-                            (profile.total - profile.upload - profile.download).coerceAtLeast(0)
+                            remaining
                         ),
                 )
             }

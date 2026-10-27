@@ -1,5 +1,7 @@
 """Loopback-only network fixture for Android integration tests. No external servers."""
 import http.server
+import json
+from pathlib import Path
 import select
 import socket
 import socketserver
@@ -62,6 +64,11 @@ class HTTP(http.server.BaseHTTPRequestHandler):
             data = CONFIG.encode()
         elif self.path.startswith("/config-invalid"):
             data = b"proxies: [invalid: yaml"
+        elif self.path in ("/encrypted-config/x25519", "/encrypted-config/hybrid"):
+            fixtures = json.loads((Path(__file__).resolve().parents[1] /
+                "app/src/androidTest/assets/encrypted-profiles.json").read_text())
+            kind = self.path.rsplit("/", 1)[1]
+            data = next(item["encrypted"] for item in fixtures if item["kind"] == kind).encode()
         elif self.path.startswith("/config"):
             data = CONFIG.encode()
         elif self.path == "/generate_204":
@@ -85,7 +92,10 @@ class HTTP(http.server.BaseHTTPRequestHandler):
             data = b"lees-clash-local-fixture"
         self.send_response(200)
         if self.path.startswith("/config"):
-            self.send_header("subscription-userinfo", "upload=1024; download=2048; total=1048576; expire=1893456000")
+            if self.path == "/config-subscription/over-quota":
+                self.send_header("subscription-userinfo", "upload=9223372036854775807; download=9223372036854775807; total=1; expire=1")
+            elif self.path != "/config-subscription/no-info":
+                self.send_header("subscription-userinfo", "upload=1024; download=2048; total=1048576; expire=1893456000")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -129,13 +139,23 @@ class DNS(socketserver.BaseRequestHandler):
         try:
             packet = read_exact(self.request, struct.unpack("!H", read_exact(self.request, 2))[0])
             offset = 12
+            labels = []
             while packet[offset]:
+                labels.append(packet[offset+1:offset+1+packet[offset]])
                 offset += packet[offset] + 1
             offset += 1
             kind = struct.unpack("!H", packet[offset:offset+2])[0]
             question = packet[12:offset+4]
-            answer = b"\xc0\x0c" + struct.pack("!HHIH", 1, 1, 60, 4) + socket.inet_aton("127.0.0.1") if kind == 1 else b""
-            response = packet[:2] + struct.pack("!HHHHH", 0x8180, 1, int(bool(answer)), 0, 0) + question + answer
+            domain = b".".join(labels).lower()
+            if domain == b"timeout-verification.test":
+                time.sleep(12)
+                return
+            code = 3 if domain == b"nxdomain-verification.test" else 2 if domain == b"servfail-verification.test" else 0
+            value = (socket.inet_aton("127.0.0.1") if kind == 1 else
+                     socket.inet_pton(socket.AF_INET6, "::1") if kind == 28 else
+                     b"\x0dlocal-fixture" if kind == 16 else b"")
+            answer = b"\xc0\x0c" + struct.pack("!HHIH", kind, 1, 60, len(value)) + value if value and not code else b""
+            response = packet[:2] + struct.pack("!HHHHH", 0x8180 | code, 1, int(bool(answer)), 0, 0) + question + answer
             self.request.sendall(struct.pack("!H", len(response)) + response)
         except (OSError, EOFError, IndexError):
             pass

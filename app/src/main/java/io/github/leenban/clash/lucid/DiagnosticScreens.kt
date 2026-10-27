@@ -1,10 +1,14 @@
 package io.github.leenban.clash.lucid
 
 import android.net.Uri
+import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -13,6 +17,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.leenban.clash.design.lucid.*
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ConnectionsScreen(
@@ -207,31 +214,54 @@ fun DnsScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
 
 @Composable
 fun StatsScreen(state: ClientState, back: () -> Unit) {
-    Column {
+    Column(Modifier.fillMaxSize()) {
         LucidHeader("实时统计", back)
-        LucidSection("当前速率") {
-            LucidRow("上传", value = "${formatBytes(state.traffic.uploadRate)}/s")
-            LucidRow("下载", value = "${formatBytes(state.traffic.downloadRate)}/s")
-        }
-        LucidSection("本次运行累计") {
-            LucidRow("上传", value = formatBytes(state.traffic.uploadTotal))
-            LucidRow("下载", value = formatBytes(state.traffic.downloadTotal))
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            LucidSection("当前速率") {
+                LucidRow("上传", value = "${formatBytes(state.traffic.uploadRate)}/s")
+                LucidRow("下载", value = "${formatBytes(state.traffic.downloadRate)}/s")
+            }
+            LucidSection("本次运行累计") {
+                LucidRow("上传", value = formatBytes(state.traffic.uploadTotal))
+                LucidRow("下载", value = formatBytes(state.traffic.downloadTotal))
+            }
         }
     }
 }
 
 @Composable
-fun LogsScreen(state: ClientState, back: () -> Unit) {
+fun LogsScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
+    val logs = state.logs.asReversed().filter {
+        it.message.contains(query, true) || it.level.name.contains(query, true)
+    }
     Column(Modifier.fillMaxSize()) {
-        LucidHeader("运行日志", back)
+        LucidHeader("运行日志", back, "分享", actionEnabled = logs.isNotEmpty() && !state.busy) {
+            vm.task(progress = "正在准备日志") {
+                val context = vm.repository.context
+                val uri = withContext(Dispatchers.IO) {
+                    val folder = File(context.cacheDir, "shared-logs").apply { mkdirs() }
+                    val file = File.createTempFile("lees-clash-log-", ".txt", folder)
+                    val format = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.ROOT)
+                    file.bufferedWriter().use { output ->
+                        for (log in logs) {
+                            output.appendLine("${log.level.name.uppercase()}  ${format.format(log.time)}")
+                            output.appendLine(log.message)
+                            output.appendLine()
+                        }
+                    }
+                    FileProvider.getUriForFile(context, "${context.packageName}.updates", file)
+                }
+                val intent = Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_STREAM, uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .apply { clipData = android.content.ClipData.newUri(context.contentResolver, "运行日志", uri) }
+                context.startActivity(Intent.createChooser(intent, "分享运行日志").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }
         LucidSearch(query, { query = it }, "搜索日志内容或级别")
         LazyColumn(Modifier.weight(1f).padding(horizontal = 20.dp)) {
-            items(
-                state.logs.asReversed().filter {
-                    it.message.contains(query, true) || it.level.name.contains(query, true)
-                }
-            ) { log ->
+            items(logs) { log ->
                 Text(
                     "${log.level.name.uppercase()}  ${java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.ROOT).format(log.time)}\n${log.message}",
                     Modifier.padding(vertical = 9.dp),

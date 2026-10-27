@@ -7,7 +7,7 @@ import urllib.request
 
 
 def is_published(repository, tag, token):
-    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag) or tuple(map(int, tag[1:].split("."))) < (0, 1, 0):
+    if not re.fullmatch(r"v\d+\.\d+\.\d+", tag) or tuple(map(int, tag[1:].split("."))) < (0, 0, 1):
         raise ValueError("Expected a new closed-release version tag")
     if int(tag.rsplit(".", 1)[1]) >= 50:
         raise ValueError("Patch version must carry at 50")

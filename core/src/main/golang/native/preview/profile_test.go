@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/metacubex/mihomo/component/age"
 )
 
 func TestStoppedProfileGroupsProvidersAndLogicalRules(t *testing.T) {
@@ -30,7 +32,7 @@ rules:
 	if err := os.WriteFile(filepath.Join(root, "providers", "cache.yaml"), []byte("proxies:\n  - {name: Cached-A, type: socks5}\n  - {name: Excluded, type: ss}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := Read(root)
+	p, err := Read(root, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,8 +46,47 @@ rules:
 	if err := os.Rename(filepath.Join(root, "providers", "cache.yaml"), filepath.Join(root, "providers", "cache.saved")); err != nil {
 		t.Fatal(err)
 	}
-	p, err = Read(root)
+	p, err = Read(root, "")
 	if err != nil || len(p.Groups[0].Group.Proxies) != 1 {
 		t.Fatalf("cache-independent preview: %v", err)
+	}
+}
+
+func TestEncryptedPreviewUsesSelectedKeyAndInvalidatesCache(t *testing.T) {
+	for _, generate := range []func() (string, string, error){age.GenX25519KeyPair, age.GenHybridKeyPair} {
+		secret, public, err := generate()
+		if err != nil {
+			t.Fatal(err)
+		}
+		wrong, _, err := generate()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := age.EncryptBytes([]byte("proxy-groups:\n  - {name: Private, type: select, proxies: [DIRECT]}\nrules: [\"MATCH,DIRECT\"]\n"), public)
+		if err != nil {
+			t.Fatal(err)
+		}
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "config.yaml"), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		// A valid global key from another operation must not unlock a preview with no key.
+		age.SetGlobalSecretKeys(secret)
+		t.Cleanup(func() { age.SetGlobalSecretKeys() })
+		if _, err := Read(root, ""); err == nil {
+			t.Fatal("preview used a global identity")
+		}
+		age.SetGlobalSecretKeys(wrong)
+		if _, err := Read(root, secret); err != nil {
+			t.Fatal(err)
+		}
+		for _, key := range []string{"", wrong, "invalid"} {
+			if _, err := Read(root, key); err == nil {
+				t.Fatal("cached preview bypassed identity validation")
+			}
+		}
+		if _, err := Read(root, secret); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

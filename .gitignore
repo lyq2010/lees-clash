@@ -81,3 +81,8 @@ google-services.json
 
 # MacOS
 .DS_Store
+
+# Generated release staging, Python bytecode and acceptance output
+/artifacts/
+/docs/verification/
+__pycache__/

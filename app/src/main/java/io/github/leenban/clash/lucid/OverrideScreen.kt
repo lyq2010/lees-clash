@@ -36,7 +36,7 @@ private val overrideTitles =
         "geodata-mode" to "Geo 数据模式",
         "tcp-concurrent" to "TCP 并发",
         "global-ua" to "资源请求 User-Agent",
-        "global-client-fingerprint" to "全局 TLS 指纹",
+        "global-client-fingerprint" to "全局 TLS 指纹（已停用）",
         "keep-alive-idle" to "TCP 保活空闲时间（秒）",
         "keep-alive-interval" to "TCP 保活间隔（秒）",
         "disable-keep-alive" to "禁用 TCP 保活",
@@ -154,6 +154,8 @@ fun OverrideScreen(
             else
                 try {
                     val key = editing!!
+                    if (key == "global-client-fingerprint")
+                        require(text.isBlank()) { "当前内核已停用全局指纹，请在节点配置中设置 client-fingerprint；此处仅可清空旧值。" }
                     val descriptor = schema.getElementDescriptor(schema.getElementIndex(key))
                     val value =
                         if (text.isBlank() && descriptor.isNullable) JsonNull
@@ -201,7 +203,9 @@ fun OverrideScreen(
                 }
             } else {
                 item {
-                    LucidSection(footer = "修改在点按“完成”后生效。未设置的项目保持配置文件原值。") {
+                    LucidSection(footer = if (keys == listOf("dns"))
+                        "关闭 DNS 时将使用应用默认解析设置。DNS 请求遵循路由规则时，需配置代理服务器域名解析。修改在点按“完成”后生效。"
+                        else "修改在点按“完成”后生效。未设置的项目保持配置文件原值。") {
                         for (i in 0 until schema.elementsCount) {
                             val key = schema.getElementName(i)
                             val descriptor = schema.getElementDescriptor(i)

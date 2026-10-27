@@ -1,52 +1,74 @@
 # Lee’s Clash 开发交接
 
-更新日期：2026-10-27。当前为开发版，完整产品与正式发版尚未全部验收；逐项见 [开发矩阵](DEVELOPMENT-MATRIX.md)。
+更新日期：2026-10-27。当前源码版本 **0.0.1**，`versionCode=2`。本次统一首发版本名，同时保持安装版本码递增。正式发布结果以[发布记录](RELEASE.md#本次发行)为准，功能状态见[开发矩阵](DEVELOPMENT-MATRIX.md)。
 
-## 工程与协作边界
+## 工程与维护入口
 
-- 当前目录 `D:\Desktop\codex\lees-clash`，私有远程 `lyq2010/lees-clash`，main。
-- Kotlin / Compose 应用层、Go 内核、少量 C/JNI；自有标识 `io.github.leenban.clash`，最低 API26、target35，0.1.0 / versionCode1。
-- CMFA `1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`，mihomo `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`，源码快照与固定 Geo 随仓保存。来源 / 许可见 UPSTREAM、NOTICE。
-- 首页布局与 Lucid 风格保持；配置名单行，三角紧跟标题，长名截断；不加长按提示。成功用底部短 Toast，错误 / 延迟进度用不改变布局的顶部浮层，长错误可展开模态详情；危险操作二次确认。
-- **推送、标签和发布分别按明确授权执行；未授权不删除文件。** 私有源码与发版现均在本仓；不再建立公开发版仓。
-- 真实机场更新受订阅开关影响，由用户后测；禁止继续用该接口做自动回归。WebDAV 不做。
+- 当前工作区 `/Users/angelolee/Desktop/Lee/lees-clash`，私有源码 / Release 仓 `lyq2010/lees-clash`，维护分支 `main`；不新建公开发版仓。
+- 应用标识 `io.github.leenban.clash`，最低API26、target35；Kotlin / Compose应用层、Android服务、Go内核与少量C/JNI。
+- 固定CMFA、mihomo、QuickJS和Geo来源见[UPSTREAM](UPSTREAM.md)；保留LICENSE、NOTICE与源码内第三方许可，不以品牌清理为由删除依赖归属。
+- 工具链与共享缓存放外挂卷，入口`bash scripts/Build.sh`；签名、构建、测试和发版步骤统一见[RELEASE](RELEASE.md)。
+- 用户明确要求本轮提交并发布0.0.1，私有GitHub Release加公开COS / R2镜像，不附源码包。后续推送、标签、发行与删除仍按当次授权执行。
+- 真实机场订阅更新由用户后测，本轮不对真实机场做自动回归；WebDAV不做。
 
-## 本轮实现
+## 实现与关键约束
 
-- 配置导入 / 更新 / 编辑的真实终态反馈，停机策略与规则浏览，选择预存；修复 kaidl 取消后迟到 Parcel 回复（本地 MIT 源码补丁）。
-- 五类 Geo 单项 / 全部在线更新及文件导入，流式下载、格式校验、失败保留原文件。
-- 本地流式 ZIP 备份 / 预览 / 合并恢复；规模、路径、配置和 Geo 校验，重复配置跳过，失败回滚受影响内容。备份不加密，含订阅链接与私钥。
-- 独立配置扩展、结构化规则 / 代理 / 分组、高级 JSON 和 QuickJS 配置转换。脚本 VM 临时创建、32MB 堆 / 500ms，不提供宿主网络与文件能力。
-- 默认关闭的按需网络；手动 IP / HTTP / 强制直连检查及可选本地20条历史；订阅流量 / 到期展示；文件重命名与外部编辑返回校验。
-- 版本 / age 密钥调用转至服务，UI 无第二份 Go 映射；分组摘要不加载所有节点，进入组才读节点；页面可见采样、流式 / 有界读入。
-- 修复 TUN 关闭锁等待、启动 / 停止广播竞争、网络事件覆盖和服务死亡重连。服务停止通过 stop latch 协调，不能简单替换为 stopService。
-- Music 协议的更新器已移植，使用平台 HTTPS、有界更新源、流式 APK、镜像一致性 / SHA / 包名 / 版本 / 签名验证及用户安装授权；手动检查，不启动自动请求。
+首页保持Lucid风格和原有二级标签 / 彩色卡片。配置名单行省略，三角紧跟标题；成功用底部短Toast，错误 / 延迟进度用不挤动正文的顶部浮层，长错误可展开详情；危险操作二次确认。界面细节见[UI-DESIGN](UI-DESIGN.md)。
 
-## 本地构建与验证
+| 模块 | 实现与维护要点 |
+|---|---|
+| 配置 | 链接 / 文件 / 二维码导入、编辑、更新与明确终态反馈；系统文档目标跨旋转保存。停止时仍从所选配置 / 提供器缓存浏览规则和策略，手动选择可预存 |
+| 扩展 | 独立规则 / 代理 / 分组及高级JSON，订阅更新保留扩展；QuickJS临时VM，32MB堆 / 500ms，不开放宿主网络和文件 |
+| 文件与备份 | 文件重命名、外部编辑返回校验，非法YAML回滚；流式ZIP备份、预览、合并恢复，路径 / 规模 / Geo校验及失败回滚。备份未加密，含订阅链接和密钥 |
+| 资源 | 五类Geo单项 / 全部更新、格式校验、失败保留原件及本地导入；保持固定随包快照 |
+| 网络 | VPN四栈 / IPv6 / 分应用、默认关闭的按需网络、手动IP / HTTP / 直连诊断与可选本地20条历史；不虚构质量评分 |
+| 诊断 | 连接详情 / 分页 / 关闭，规则检索、DNS与流量统计；日志筛选结果通过只读FileProvider分享。自动分享测试仅使用合成文本 |
+| 加密配置 | X25519与Hybrid age；停机预览显式传所选配置密钥，缓存包含密钥摘要，不能复用旧全局密钥或跨密钥缓存 |
+| 生命周期 | 版本 / 密钥接口在服务进程，UI不加载第二份Go映射；分组首页只取摘要，页面可见采样、有界文件处理。服务停止须遵循stop latch，不能简单替换成stopService |
+| Binder | 本地kaidl补丁为迟到回复使用独立Parcel快照，原子仲裁完成 / 取消 / 死亡；不能同时打包原AAR，来源及许可见UPSTREAM |
+| 更新 | 手动检查，平台HTTPS流式下载；安装前核对镜像一致性、SHA-256、大小、包名、版本与原签名，并请求系统安装授权 |
 
-```powershell
-.\scripts\Build.ps1 -Tasks ':app:assembleAlphaDebug',':app:assembleAlphaDebugAndroidTest',':app:testAlphaDebugUnitTest'
-.\scripts\Build.ps1 -Tasks ':app:assembleAlphaRelease' -Abi all
-```
+## 验收摘要
 
-脚本显式设置 TEMP / TMP、Gradle / Kotlin / Android / Go 缓存到 I 盘。JDK21、SDK35、NDK29.0.14206865、CMake3.22.1、定制 Go1.26.10。单 ABI Debug 是 testOnly，使用 `adb install -r -t`。
+以下为明确场景覆盖，不代表所有输入穷举或所有物理设备均通过。原始测试日志、截图和AVD在本次发版完成后按用户要求清理，摘要及测试源码保留。
 
-- MuMu 实例3，`127.0.0.1:16480`，API35 x86_64；emulator-5560 是同一实例，不能当成第二设备。
-- 官方无窗口 API26 / API37 AVD 用于兼容验证，数据在 I 盘。用户接受 MuMu 作为本机设备；不冒称已验证物理 ARM 或真实蜂窝。
-- 主机 fixture `scripts/local-fixture.py` 只监听回环，HTTP18080 / SOCKS18081 / DNS TCP13053；ADB reverse 同三端口。测试在 finally 恢复选中配置与设置，保留测试配置。
-- MuMu 完整24项通过，含 UI 无第二内核映射；安全区调整后7项再验证通过；JVM17项、发版脚本11项、Go宿主10项、Android脚本限制测试通过。
-- API26核心9项通过；API37核心10项通过，Compose页面用例因 Espresso InputManager 反射不兼容失败。最终 UI 调整、四 ABI / R8 / 签名和实际转发均通过，包哈希见 VERIFICATION。
-- B02 已解除：固定原版独立构建、安装、导入、VPN与本机实际转发均通过。原版包保留但停止。
-- Debug 单次暖启动样本 UI93085KiB、后台113443KiB PSS；仅作样本，不声称固定峰值或严格改善百分比。
+| 范围 | 结果 |
+|---|---|
+| 宿主回归 | JVM17项、Go宿主11项；发版辅助测试现13项，新增0.0.1首次发布 / 完整资产识别和CHANGELOG说明提取回归 |
+| 完整设备回归 | API35 ARM64共24类34项通过；API37新增覆写 / 订阅 / DNS5项、普通universal Debug8项通过；历史API26核心9项及MuMu API35 x86_64完整24项通过 |
+| 屏幕 | 手机 / 平板、横 / 竖屏、1 / 2倍字体八组合，每组2项；29页浅深色共464张页面截图已抽查，修复统计 / 备份 / 预览底部不可达 |
+| 系统工作流 | API35 / API37真实DocumentsUI保存 / 恢复ZIP、导入 / 导出YAML、旋转返回、非法Geo拒绝；Markor实际外部编辑 / 旋转 / 无效内容回滚；LauncherApps快捷方式、SystemUI磁贴与通知通过 |
+| 安全边界 | 两类age冷启动预览 / 运行和错误密钥拒绝，缓存不能绕过密钥；备份ZipSlip / 非法归档拒绝、五类Geo恢复再导出哈希一致；合成日志筛选分享跨UID读取通过 |
+| 覆写 | 70叶字段完整值 / 空集合 / 全部清除，经Kotlin序列化、Parcel / Binder、Go持久化回读一致；后台服务重建、嵌套表单及会话优先级通过 |
+| Go组合 | API35 / API37各6个顶层测试及1296组真实解析：出站3 × DNS增强3 × Fake IP过滤3 × 进程识别3 × 4个布尔开关16组合；实际调用UnmarshalAndPatch和ParseRawConfig |
+| 覆写运行 | 回环hosts、代理407 / 200、控制器401 / 200、CORS、本地TLS与NTP收发；无效DNS列表 / 嗅探端口 / 网段拒绝；NTP测试不写系统时间 |
+| 订阅 / DNS | 合成HTTP头到数据库和界面，覆盖缺信息 / 过期 / 极大用量；修复剩余额度减法溢出；A / AAAA / TXT / TTL、NXDOMAIN / SERVFAIL / 超时与非法输入通过 |
+| Release | 原独立签名四ABI和通用包、R8代码 / 资源裁剪；签名 / 真实CPU / 16KB ZIP对齐及64位ELF LOAD对齐通过。ARM64在API35 / API37实际导入 / VPN / 本地转发通过；精简通用Release在API37真实相机采集 / 解码 / 回填 / 导入通过 |
 
-## 签名与 Actions
+单次内存样本：Debug UI93085KiB / 后台113443KiB，历史Release UI48110KiB / 后台63858KiB PSS；热度不同，不作为峰值或严格改善比例。API37 ARM64实测页大小16384；其他ABI的构建及静态审核不能表述为四CPU实机运行。
 
-2026-10-27 重新生成 Clash 独立 RSA4096，alias lees-clash；没有复用 Music / Toolbox 密钥。当前 `.secrets/lees-clash-release-20261027.p12` 与 signing.properties 已忽略。公开证书指纹见 tools/release/signing-certificate.sha256。
+### 覆写语义
 
-备份 `E:\家用资料\恢复码\lees-release-backup\lees-clash\independent-20261027` 已逐字节核对；旧签名单独备份并保留。八项 Secrets 已获授权并配置成功。Actions 已开启、仅允许 GitHub 官方动作，四个旧工作流已停用；新工作流已纳入本次提交，尚未运行。细节及手动流程见 RELEASE。
+- `global-client-fingerprint`已被当前内核移除；模型仍读旧值，界面标停用并仅允许清空。节点使用`client-fingerprint`。
+- 会话覆写在服务每次启停时清除，优先级为原配置→持久覆写→会话覆写。
+- Android必须保留内部DNS；关闭DNS会启用应用默认并附加系统DNS，界面已有说明。
+- 空集合与未覆写不同：列表可显式清空，hosts空映射不删除原配置键，同名键按合并语义覆盖。
+- TLS测试信任仅限回环临时自签名连接，不改系统信任；NTP的write-to-system=true只做解析，不为测试改变设备系统权限。
 
-## 尚未完成
+## 仍需配合的验收
 
-真实机场更新由用户后测；完整平板 / 横屏 / 大字体、按需真实切换、Geo成功恢复与SAF、相机扫码 / 外部编辑器、加密配置解密、磁贴 / 快捷方式仍保留待验证。真实蜂窝 / 非x86运行需要相应条件。远程完整发版与镜像写入清理等待正式发布授权；公开分发 GPL 对应源码安排仍未解决。
+| 项目 | 条件与步骤 |
+|---|---|
+| F06 / U07 / V03真机网络 | 连接ARM64安卓设备并开启USB调试，准备可切换Wi-Fi / 蜂窝；验指定SSID匹配、权限拒绝、断开 / 重连、网络切换，以及后台 / 熄屏后VPN暂停与恢复 |
+| U04 / F03真实订阅 | 用户在机场开关可用时手动更新，核对上传 / 下载 / 剩余 / 到期和实际账单；设置更新间隔后观察后台成功 / 失败反馈。提供脱敏结果即可，无需真实链接 |
+| 用户部署 | 有自有TLS证书链 / 远端NTP需求时使用专门测试端点验收；当前回环证据不代替实际部署或厂商系统后台策略 |
 
-旧文件未删除；四个已停用工作流候选见 CLEANUP-CANDIDATES，XML / 资源有编译引用，不能直接目录删除。测试前私有数据备份 `I:\DevCache\lees-clash-private-preverification-20261026.tar`，不纳入 Git；不要删除用户配置。临时 fixture / reverse / 自建模拟器与原始测试产物已清理，验证JSON摘要保留，见 VERIFICATION。
+FlClash仅做能力对照，固定提交见UPSTREAM；专用User-Agent预设管理页、完整资源管理体验尚未实现，不将内核支持等同于完整页面。真实Wi-Fi / 蜂窝及真实订阅仍在矩阵保留待验证。
+
+## 文档与产物清理
+
+本次将构建 / 验收 / 覆写 / 安装体积 / 配合 / 清理 / 对照资料合并到本文件、RELEASE和开发矩阵；docs保留这三份及UI-DESIGN、UPSTREAM，删除独立发布说明和过期验收JSON。发布说明统一从根CHANGELOG的对应版本章节提取。保留品牌SVG母版，不保留生成的PNG预览。
+
+I03此前已授权移除204个旧文件：4旧工作流、1旧Activity基类、87旧Design源码、43布局、69图像 / 菜单 / 动画 / 独立资源；保留UiStore、DarkMode、AppInfoSort / AppInfo、File / LogFile、日期格式化、共享主题及许可证。原废纸篓`lees-clash-I03-20261027-112252`仍可恢复。
+
+本轮清理范围为工作区模块build / .cxx、生成的Android资产、临时文件、截图、验证目录、测试AVD、旧APK / 测试APK / 解包原生库及外挂卷项目编译缓存。采用同卷废纸篓归档并记录路径，保留正式P12 / 恢复码、受限签名属性、工具链、Gradle依赖 / Wrapper和Go模块下载。发布APK以远端Release和镜像为交付位置，本地构建及暂存副本在远端校验成功后移走。不要把本次授权扩展到其他项目或整卷清理。

@@ -1,0 +1,4 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_lees_backdrop" />
+    <item android:drawable="@drawable/ic_lees_mark" android:width="216dp" android:height="216dp" android:gravity="center" />
+</layer-list>

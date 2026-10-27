@@ -8,8 +8,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import io.github.leenban.clash.common.constants.Intents
 import io.github.leenban.clash.common.util.intent
 import io.github.leenban.clash.common.util.setUUID
-import io.github.leenban.clash.design.MainDesign
-import io.github.leenban.clash.design.ui.ToastDuration
 import io.github.leenban.clash.remote.StatusClient
 import io.github.leenban.clash.service.model.Profile
 import io.github.leenban.clash.util.startClashService

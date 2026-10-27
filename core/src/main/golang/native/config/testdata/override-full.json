@@ -1,0 +1,57 @@
+{
+  "port": 18090,
+  "socks-port": 18091,
+  "redir-port": 18092,
+  "tproxy-port": 18093,
+  "mixed-port": 18094,
+  "authentication": ["verification:local-only"],
+  "allow-lan": false,
+  "bind-address": "127.0.0.1",
+  "mode": "rule",
+  "log-level": "info",
+  "ipv6": true,
+  "external-controller": "127.0.0.1:19090",
+  "external-controller-tls": "127.0.0.1:19443",
+  "external-controller-cors": {"allow-origins": ["http://127.0.0.1:18080"], "allow-private-network": false},
+  "secret": "verification-local-secret",
+  "hosts": {"override.test": "127.0.0.1", "unicode.test": "::1"},
+  "unified-delay": true,
+  "geodata-mode": false,
+  "tcp-concurrent": true,
+  "global-ua": "Lees-Override-Verification/1.0",
+  "global-client-fingerprint": "chrome",
+  "keep-alive-idle": 30,
+  "keep-alive-interval": 15,
+  "disable-keep-alive": false,
+  "ntp": {"enable": false, "server": "127.0.0.1", "port": 13123, "interval": 30, "dialer-proxy": "DIRECT", "write-to-system": false},
+  "find-process-mode": "off",
+  "dns": {
+    "enable": true, "prefer-h3": true, "listen": "127.0.0.1:13054", "ipv6": true,
+    "use-hosts": true, "enhanced-mode": "redir-host",
+    "nameserver": ["tcp://127.0.0.1:13053"],
+    "fallback": ["tcp://127.0.0.1:13053"],
+    "default-nameserver": ["tcp://127.0.0.1:13053"],
+    "fake-ip-filter": ["+.local.test"], "fake-ip-filter-mode": "blacklist",
+    "fallback-filter": {"geoip": false, "geoip-code": "CN", "ipcidr": ["192.0.2.0/24"], "domain": ["+.fallback.test"]},
+    "nameserver-policy": {"+.policy.test": "tcp://127.0.0.1:13053"},
+    "respect-rules": true, "proxy-server-nameserver": ["tcp://127.0.0.1:13053"],
+    "direct-nameserver": ["tcp://127.0.0.1:13053"], "direct-nameserver-follow-policy": true
+  },
+  "clash-for-android": {"append-system-dns": false},
+  "sniffer": {
+    "enable": true,
+    "sniff": {
+      "HTTP": {"ports": ["80", "18080-18081"], "override-destination": false},
+      "TLS": {"ports": ["443", "8443"], "override-destination": true},
+      "QUIC": {"ports": ["443"], "override-destination": false}
+    },
+    "force-dns-mapping": true, "parse-pure-ip": false, "override-destination": true,
+    "force-domain": ["+.force.test"], "skip-domain": ["+.skip.test"],
+    "skip-src-address": ["192.0.2.0/24"], "skip-dst-address": ["198.51.100.0/24"]
+  },
+  "geox-url": {
+    "geoip": "http://127.0.0.1:18080/geoip.dat",
+    "mmdb": "http://127.0.0.1:18080/country.mmdb",
+    "geosite": "http://127.0.0.1:18080/geosite.dat"
+  }
+}

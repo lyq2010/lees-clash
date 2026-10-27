@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from stage import ABIS, digest, stage, version_of
 from mirror import load_assets, publish
 from signing import restore
+from published import is_published
 
 
 class PublicationTests(unittest.TestCase):
@@ -22,7 +23,7 @@ class PublicationTests(unittest.TestCase):
         folder = self.root / 'app/build/outputs/apk/alpha/release'
         folder.mkdir(parents=True)
         (self.root / 'docs').mkdir()
-        (self.root / 'docs/RELEASE_NOTES.md').write_text('Release notes')
+        (self.root / 'CHANGELOG.md').write_text('# 更新日志\n\n## 未发布\n\nFuture change\n\n## 0.1.1 (2026-10-27)\n\nRelease notes\n\n## 0.1.0 (2026-10-26)\n\nOlder notes\n')
         elements = []
         for abi in sorted(ABIS | {'universal'}):
             name = abi + '.apk'
@@ -51,6 +52,7 @@ class PublicationTests(unittest.TestCase):
             version_of('v0.1.50')
         stage(self.root, 'v0.1.1', self.assets)
         manifest, files = load_assets(self.assets)
+        self.assertEqual('Release notes', manifest['notes'])
         self.assertEqual(6, len(files))
         self.assertEqual(digest(self.assets / manifest['apk']), manifest['sha256'])
         (self.assets / 'unexpected.apk').write_bytes(b'bad')
@@ -103,3 +105,21 @@ class PublicationTests(unittest.TestCase):
     def test_missing_independent_signing_secrets_fail(self):
         with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
             restore()
+
+    def test_first_release_version_can_be_created(self):
+        with patch('published.urllib.request.urlopen', side_effect=HTTPError(
+                'https://example.test', 404, 'Missing', {}, None)) as request:
+            self.assertFalse(is_published('owner/project', 'v0.0.1', 'test-token'))
+        self.assertTrue(request.call_args.args[0].full_url.endswith('/releases/tags/v0.0.1'))
+
+    def test_existing_first_release_must_have_complete_assets(self):
+        expected = {'latest-lees-clash.json', 'lees-clash-0.0.1.apk', 'lees-clash-0.0.1-SHA256SUMS.txt'}
+        expected |= {f'lees-clash-0.0.1-{abi}.apk' for abi in ABIS}
+        release = dict(tag_name='v0.0.1', draft=False, prerelease=False,
+                       assets=[dict(name=name, state='uploaded', size=1) for name in expected])
+        with patch('published.urllib.request.urlopen', return_value=io.BytesIO(json.dumps(release).encode())):
+            self.assertTrue(is_published('owner/project', 'v0.0.1', 'test-token'))
+        release['assets'].pop()
+        with patch('published.urllib.request.urlopen', return_value=io.BytesIO(json.dumps(release).encode())):
+            with self.assertRaises(ValueError):
+                is_published('owner/project', 'v0.0.1', 'test-token')

@@ -7,6 +7,7 @@ import io.github.leenban.clash.MainActivity
 import io.github.leenban.clash.core.model.*
 import io.github.leenban.clash.util.startClashService
 import io.github.leenban.clash.util.stopClashService
+import io.github.leenban.clash.util.withProfile
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -34,6 +35,10 @@ class NativeIntegrationTest {
                         repository.profiles().find { profile ->
                             profile.name == "Local integration test"
                         }
+                    require(existing == null || existing.source == "http://127.0.0.1:18080/config") {
+                        "Local integration test must use only the loopback fixture"
+                    }
+                    if (existing?.pending == true) withProfile { release(existing.uuid) }
                     val profile =
                         existing
                             ?: repository.profile(

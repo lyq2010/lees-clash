@@ -22,6 +22,10 @@ def version_of(tag):
 
 def stage(root, tag, output=None):
     version = version_of(tag)
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    notes = re.search(r"^## " + re.escape(version) + r" \([^\n]+\)\s*\n(.*?)(?=^## |\Z)", changelog, re.M | re.S)
+    if notes is None or not notes.group(1).strip():
+        raise ValueError("Release version is missing from CHANGELOG.md")
     folder = root / "app/build/outputs/apk/alpha/release"
     metadata = json.loads((folder / "output-metadata.json").read_text(encoding="utf-8"))
     if metadata["applicationId"] != "io.github.leenban.clash":
@@ -53,7 +57,7 @@ def stage(root, tag, output=None):
     universal = destination / f"lees-clash-{version}.apk"
     manifest = dict(version=version, versionCode=entries["universal"][1], packageName=metadata["applicationId"],
                     apk=universal.name, sha256=digest(universal), size=universal.stat().st_size, minSdk=26,
-                    notes=(root / "docs/RELEASE_NOTES.md").read_text(encoding="utf-8").strip())
+                    notes=notes.group(1).strip())
     if len(manifest["notes"]) > 10000 or manifest["size"] > 512 * 1024 * 1024:
         raise ValueError("Release feed exceeds app limits")
     (destination / "latest-lees-clash.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

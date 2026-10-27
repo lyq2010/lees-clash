@@ -32,6 +32,7 @@ type Request struct {
 	Domain     string   `json:"domain"`
 	RecordType string   `json:"recordType"`
 	Path       string   `json:"path"`
+	SecretKey  string   `json:"secretKey"`
 	Overrides  []string `json:"overrides"`
 }
 
@@ -157,7 +158,7 @@ func Query(operation, payload string) string {
 		}
 		result = map[string]bool{"ok": true}
 	case "profileGroupNames", "profileGroup", "profileGroupSummary", "profileRules", "profileMode", "profileProviders":
-		profile, err := preview.Read(request.Path)
+		profile, err := preview.Read(request.Path, request.SecretKey)
 		if err != nil {
 			return failure(err.Error())
 		}
