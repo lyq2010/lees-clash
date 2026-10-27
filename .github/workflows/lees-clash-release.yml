@@ -149,7 +149,7 @@ jobs:
         if: matrix.channel == 'r2'
         with:
           node-version: '22'
-      - name: Upload, verify feed, then remove only old Clash packages
+      - name: Upload, verify per channel, then remove only old Clash packages
         env:
           TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
           TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}

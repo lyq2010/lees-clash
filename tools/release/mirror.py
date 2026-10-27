@@ -1,4 +1,4 @@
-"""Music publication order: APKs, remote verification, feed, verification, old-package cleanup."""
+"""Publish verified packages before the feed; COS never downloads object bodies."""
 import json
 import os
 from pathlib import Path
@@ -72,18 +72,47 @@ def publish(folder, base, upload, cleanup, fetch=None):
     print("Verified release and completed Clash-only cleanup:", manifest["version"])
 
 
+def publish_cos(folder, client, bucket):
+    manifest, files = load_assets(folder)
+    feed = folder / "latest-lees-clash.json"
+    def head(name):
+        return {key.lower(): value for key, value in client.head_object(Bucket=bucket, Key=name).items()}
+    try:
+        previous = head(feed.name)
+    except Exception as error:
+        if not hasattr(error, "get_status_code") or error.get_status_code() != 404:
+            raise
+    else:
+        code = int(previous.get("x-cos-meta-version-code", "0"))
+        if code <= 0:
+            raise ValueError("Existing COS feed lacks version metadata; no object downloaded or replaced")
+        if code > manifest["versionCode"] or (code == manifest["versionCode"] and previous.get("x-cos-meta-sha256") != digest(feed)):
+            raise ValueError("Refusing COS rollback or replacement of an immutable release")
+    for path in [*files, feed]:
+        checksum = digest(path)
+        with path.open("rb") as source:
+            response = client.put_object(Bucket=bucket, Body=source, Key=path.name, EnableMD5=True,
+                Metadata={"x-cos-meta-sha256": checksum, "x-cos-meta-version-code": str(manifest["versionCode"])},
+                ContentType="application/json" if path.suffix == ".json" else "application/octet-stream",
+                CacheControl="no-cache" if path.suffix == ".json" else "public, max-age=31536000, immutable")
+        uploaded = {key.lower(): value for key, value in response.items()}
+        stored = head(path.name)
+        if (not uploaded.get("etag") or stored.get("etag") != uploaded["etag"]
+                or int(stored.get("content-length", "-1")) != path.stat().st_size
+                or stored.get("x-cos-meta-sha256") != checksum
+                or stored.get("x-cos-meta-version-code") != str(manifest["versionCode"])):
+            raise ValueError("COS metadata verification failed; old packages retained")
+    prune_cos(client, bucket, manifest["version"])
+    print("Verified COS Content-MD5 upload and HEAD metadata; no object bodies downloaded:", manifest["version"])
+
+
 def main(channel, folder):
     load_assets(folder)  # Reject unexpected input before opening cloud credentials.
     if channel == "cos":
         from qcloud_cos import CosConfig, CosS3Client
         bucket = os.environ["TENCENT_COS_BUCKET"]
         client = CosS3Client(CosConfig(Region=os.environ["TENCENT_COS_REGION"], SecretId=os.environ["TENCENT_COS_SECRET_ID"], SecretKey=os.environ["TENCENT_COS_SECRET_KEY"]))
-        def upload(path):
-            with path.open("rb") as source:
-                client.put_object(Bucket=bucket, Body=source, Key=path.name,
-                    ContentType="application/json" if path.suffix == ".json" else "application/octet-stream",
-                    CacheControl="no-cache" if path.suffix == ".json" else "public, max-age=31536000, immutable")
-        publish(folder, "https://releases.angelolee.cn", upload, lambda version: prune_cos(client, bucket, version))
+        publish_cos(folder, client, bucket)
     elif channel == "r2":
         token = os.environ["CLOUDFLARE_API_TOKEN"]
         account = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
