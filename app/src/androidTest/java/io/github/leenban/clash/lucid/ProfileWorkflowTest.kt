@@ -3,6 +3,7 @@ package io.github.leenban.clash.lucid
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.leenban.clash.MainActivity
 import io.github.leenban.clash.remote.StatusClient
@@ -17,6 +18,30 @@ class ProfileWorkflowTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     private lateinit var vm: ClientViewModel
+
+    @Test(timeout = 60000)
+    fun returningToForegroundRefreshesProfileChangedWhileStopped() = runBlocking {
+        val repository = ClientRepository(compose.activity.applicationContext)
+        val original = repository.active()
+        compose.activityRule.scenario.onActivity {
+            vm = ViewModelProvider(it)[ClientViewModel::class.java]
+        }
+        vm.refresh(forceMode = true)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        var imported: io.github.leenban.clash.service.model.Profile? = null
+        try {
+            val id = repository.importUrl("Foreground ${System.currentTimeMillis()}", "http://127.0.0.1:18080/config", null)
+            imported = repository.profile(id.toString())!!
+            repository.select(imported)
+            assertNotEquals(id, vm.state.value.active?.uuid)
+            compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+            await("profile selected while stopped") { vm.state.value.active?.uuid == id }
+        } finally {
+            compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+            if (original != null) repository.select(original)
+            imported?.let { repository.delete(it) }
+        }
+    }
 
     private suspend fun await(label: String, check: () -> Boolean) {
         try {

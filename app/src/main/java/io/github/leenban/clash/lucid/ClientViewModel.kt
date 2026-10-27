@@ -38,6 +38,7 @@ class ClientViewModel(application: Application) :
     private var pageVersion = 0
     private var profileInitialized = false
     private val json = DiagnosticJson.format
+
     private val connections =
         DiagnosticPager<ConnectionInfo>({ it.id }) { query, offset ->
             json.decodeFromString(
@@ -52,6 +53,10 @@ class ClientViewModel(application: Application) :
                 repository.diagnostic("rules", query, offset),
             )
         }
+
+    fun onForeground() {
+        profileInitialized = false
+    }
 
     fun clearError() {
         mutable.update { it.copy(error = null) }

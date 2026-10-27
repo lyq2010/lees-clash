@@ -192,6 +192,7 @@ open class LucidActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         Remote.broadcasts.addObserver(model)
+        model.onForeground()
     }
 
     override fun onStop() {
