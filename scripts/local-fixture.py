@@ -34,7 +34,7 @@ proxy-groups:
     type: select
     proxies: [Local-A, Local-B]
 rules:
-  - DOMAIN,lees-clash.test,Local-Test
+  - DOMAIN-SUFFIX,lees-clash.test,Local-Test
   - MATCH,DIRECT
 """
 
@@ -83,7 +83,8 @@ class HTTP(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", "65536")
             self.end_headers()
             try:
-                chunks = 240 if self.path == "/hold" else 16
+                # Instrumented UI tests can take up to 180s; clients close these sockets in finally.
+                chunks = 1200 if self.path == "/hold" else 16
                 for _ in range(chunks):
                     self.wfile.write(b"x" * (1 if self.path == "/hold" else 4096))
                     self.wfile.flush()
@@ -120,7 +121,7 @@ class SOCKS(socketserver.BaseRequestHandler):
             else:
                 return
             port = struct.unpack("!H", read_exact(client, 2))[0]
-            if command != 1 or host not in ("lees-clash.test", "127.0.0.1") or port != 18080:
+            if command != 1 or not (host in ("lees-clash.test", "127.0.0.1") or host.endswith(".lees-clash.test")) or port != 18080:
                 client.sendall(b"\x05\x02\x00\x01" + b"\x00" * 6)
                 return
             with socket.create_connection(("127.0.0.1", 18080), timeout=5) as target:

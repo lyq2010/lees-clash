@@ -2,6 +2,7 @@ package io.github.leenban.clash.lucid
 
 import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -16,7 +17,6 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -105,7 +105,7 @@ fun ClientApp(
             DarkMode.ForceLight -> false
             else -> true
         }
-    val activity = LocalContext.current as? android.app.Activity
+    val activity = LocalActivity.current
     SideEffect {
         activity?.let {
             androidx.core.view.WindowCompat.getInsetsController(it.window, it.window.decorView)

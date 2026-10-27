@@ -25,7 +25,6 @@ def is_published(repository, tag, token):
         raise
     version = tag[1:]
     expected = {"latest-lees-clash.json", f"lees-clash-{version}.apk", f"lees-clash-{version}-SHA256SUMS.txt"}
-    expected |= {f"lees-clash-{version}-{abi}.apk" for abi in ("arm64-v8a", "armeabi-v7a", "x86", "x86_64")}
     assets = release.get("assets", [])
     if (release.get("draft") or release.get("prerelease") or release.get("tag_name") != public_tag
             or {asset["name"] for asset in assets} != expected

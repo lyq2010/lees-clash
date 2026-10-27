@@ -30,7 +30,7 @@ Mac使用`/Volumes/DISK/Applications/lees-clash-toolchain`，共享缓存 / 下�
 ```bash
 bash scripts/Build.sh  # 默认ARM64 Debug
 bash scripts/Build.sh :app:testAlphaDebugUnitTest :app:assembleAlphaDebug :app:assembleAlphaDebugAndroidTest -Pandroid.injected.build.abi=arm64-v8a --max-workers=4
-# 不传注入ABI，得到四架构与通用Release：
+# 不传注入ABI，得到一份包含四架构的通用Release：
 GOMAXPROCS=4 bash scripts/Build.sh :app:assembleAlphaRelease --max-workers=4
 source scripts/mac-env.sh
 "$LEES_CLASH_TOOLCHAIN/python/bin/python" -B -m unittest discover -s tools/release/tests -v
@@ -38,7 +38,7 @@ source scripts/mac-env.sh
 
 Windows使用PowerShell7：`pwsh -File scripts/Build.ps1`，全Release为`./scripts/Build.ps1 -Tasks ':app:assembleAlphaRelease' -Abi all`，共享状态放I盘。Linux发版工具版本及下载哈希锁定在`tools/release/toolchain.json`。
 
-单ABI Debug / 测试包在`app/build/intermediates/apk/`，安装需`adb install -r -t`；普通多ABI包在`app/build/outputs/apk/alpha/{debug,release}/`，不可与旧intermediates产物混用。R8映射在`app/build/outputs/mapping/alphaRelease/`。Debug签名不能替代原签名Release验收。
+注入单ABI的Debug / 测试包在`app/build/intermediates/apk/`，安装需`adb install -r -t`；常规通用包在`app/build/outputs/apk/alpha/{debug,release}/`，不可与旧intermediates产物混用。R8映射在`app/build/outputs/mapping/alphaRelease/`。Debug签名不能替代原签名Release验收。
 
 ## 本地复验
 
@@ -63,7 +63,7 @@ bash scripts/Verify-Overrides.sh "$serial"
 bash scripts/Verify-Layouts.sh "$serial"
 ```
 
-JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests)`，不能只看进程退出码。Release用独立AVD，避免Debug / 正式证书不一致而覆盖测试数据。签名包运行入口`python3 -B tools/release/release_smoke.py --serial emulator-5582`，须先准备fixture和同三端口reverse。
+JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests)`，不能只看进程退出码。Release用独立AVD，避免Debug / 正式证书不一致而覆盖测试数据。签名包运行入口`"$LEES_CLASH_TOOLCHAIN/python/bin/python" -B tools/release/release_smoke.py --serial emulator-5582`，须先准备fixture和同三端口reverse。
 
 - `OverrideCombinationsVerificationTest`共享70叶字段JSON夹具；Android Go测试用真实标签foss,with_gvisor,cmfa，不为Darwin增加平台桩。订阅 / DNS测试均用合成输入，不请求真实机场。
 - `SystemDocumentWorkflowTest`需英文系统UI，保存到Downloads；按文档ID与精确名称查内置提供器，避免媒体索引延迟。全新AVD缺DAT时先导入测试DAT。
@@ -83,19 +83,21 @@ JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests
 | x86_64 | 95.10 | 48.15 | 49.37% |
 | universal | 286.43 | 119.59 | 58.25% |
 
-以上为首次精简时相同源码R8结果的对照；本轮首页功能增加少量代码，最终精确字节和哈希见下表。ZIP条目集合相同，全部.so、DEX和assets的SHA-256相同，唯一原始内容变化是Manifest提取标志。协议、扫码、QuickJS、加密、Geo及四ABI均保留；R8、资源裁剪和符号剥离原已启用，未删除运行时表。
+以上为历史单ABI / 通用多包基线在相同源码下的精简对照，当前只发行通用APK；本轮首页功能增加少量代码，最终通用包的精确字节和哈希以本次发行记录为准。ZIP条目集合相同，全部.so、DEX和assets的SHA-256相同，唯一原始内容变化是Manifest提取标志。协议、扫码、QuickJS、加密、Geo及四ABI均保留；R8、资源裁剪和符号剥离原已启用，未删除运行时表。
 
-ARM64 AVD的APK＋原生库目录占用89.65→112.76 MiB（增加23.11）；通用包286.45→186.08 MiB（减少100.37），只提取当前ABI。此值不含ART、用户数据或全部文件系统开销，也不是内存测量。最终精确字节及哈希由Release资产和SHA256SUMS提供。
+历史ARM64单ABI APK＋原生库目录占用89.65→112.76 MiB（增加23.11）；通用包286.45→186.08 MiB（减少100.37），只提取当前ABI。此值不含ART、用户数据或全部文件系统开销，也不是内存测量。最终精确字节及哈希由Release资产和SHA256SUMS提供。
 
 ## 发版流程
 
-1. 更新version.properties、CHANGELOG及交接 / 矩阵，完成本地门禁；发版说明从CHANGELOG匹配版本章节提取，不维护重复副本。
-2. 按明确授权提交并推送main，创建`vMAJOR.MINOR.PATCH`标签；工作流校验私有仓和main祖先关系。标签须与version.properties及CHANGELOG对应，补丁号必须小于50。
-3. 手动触发`.github/workflows/lees-clash-release.yml`并传tag。临时构建机先移除不用的预装.NET / PowerShell及Android NDK / CMake，确认至少20GiB可用，再安装锁定组件；不作用于本机工具链。仅允许GitHub官方Actions；从独立Secrets恢复签名，固定Go / Android工具（GOTOOLCHAIN=local），验证JVM、Go、Android流程、R8实际转发和四ABI身份 / 签名。静态审核同时核对metadata版本 / ABI、真实ELF CPU、全部64位LOAD至少16KB、APK zipalign与原生库压缩；R8映射头缺失即停止。失败诊断在运行日志中限量输出，不依赖Actions附件存储额度。
-4. 发布五APK、SHA256SUMS和latest-lees-clash.json到本私有仓Release。已有完整版本不可覆盖，只允许重试镜像。
-5. COS主`https://releases.angelolee.cn`、R2备`https://plt-releases.leenbsl.workers.dev`先上传APK与校验表，通过各自校验后再上传更新源并校验。**本轮及后续发版验收禁止下载COS对象正文，包括APK、校验表和更新源**：COS简单上传启用`EnableMD5=True`，由服务端核对Content-MD5；随后只用HEAD核对大小、上传响应ETag及SHA-256 / versionCode元数据。ETag仅与上传响应比较，不当作MD5。R2继续完整回读核对SHA-256。COS已有更新源缺版本元数据或同版本摘要冲突时停止，不为兼容旧格式而下载正文。
-6. 仅在新镜像完全通过后按精确Clash文件名和旧版本筛选清理旧包；分页状态缺失 / 非法、分页失败、哈希失败或feed失败则不清理，不碰其他项目 / 嵌套对象 / GitHub历史Release。
-7. 远端成功并校验后，按本次直接删除授权清理本地临时文件、构建 / 测试产物、截图和测试AVD；保留签名、工具链与可复用依赖下载。
+参考[Music发行工作流](https://github.com/lyq2010/lees-music/blob/cbb5965b60d8b3c1f709e663a610e489f800a315/.github/workflows/release.yml)的顺序，保留本项目Go内核、四ABI通用包、独立签名与16KB门禁。
+
+1. 更新version.properties、CHANGELOG及交接 / 矩阵，完成本地验证；发布说明从CHANGELOG对应章节提取。
+2. 提交并推送main及`vMAJOR.MINOR.PATCH`标签，标签推送自动触发发行；手动指定已发布标签可重试镜像。流程先读取main的发行工具，校验私有仓和标签属于main历史，再判断是否已有完整不可变Release。
+3. 新发行检出标签源码，移除临时构建机不用的预装.NET / PowerShell及NDK / CMake，确认至少20GiB可用后安装锁定工具；本机工具链不受影响。仅用锁定的GitHub官方Actions。构建缓存支持前缀恢复，并在测试失败时保存可复用依赖及Go编译缓存，避免每次失败重新冷编译。
+4. 先执行Go宿主测试、单ABI Debug构建及限定回环夹具的隔离设备回归；通过后才恢复正式签名，执行JVM单测、完整Lint及通用Release构建，再实际运行原签名R8包。CMake依赖绑定到当前变体，单ABI Debug只编译一份Alpha内核，通用Release的四ABI各编译一次，不再附带Meta编译。
+5. 审核R8映射、包名 / 版本、原证书、四ABI真实ELF CPU、64位LOAD至少16KB、APK zipalign及原生库压缩。只暂存并发布`lees-clash-<版本>.apk`、SHA256SUMS和latest-lees-clash.json，共三项资产；不生成或发布分架构APK。已有完整Release不覆盖。
+6. 发布后COS / R2并行同步，镜像工具从main读取，便于修复后重试且保持发行标签不变。**发版验收禁止下载COS对象正文，包括APK、校验表和更新源**：上传启用`EnableMD5=True`，由服务端核对Content-MD5；之后只用HEAD核对大小、上传响应ETag和SHA-256 / versionCode元数据。ETag仅与上传响应比较，不当作MD5。R2继续完整回读校验SHA-256。COS已有更新源缺版本元数据或同版本摘要冲突时停止，不下载正文。
+7. 新镜像验证完成后，按精确Clash文件名和旧版本清理旧包；分页信息缺失 / 非法、哈希或feed检查失败时不清理，不碰其他项目 / 嵌套对象 / GitHub历史Release。随后按授权直接删除本地临时、构建 / 测试 / 截图 / 验收和Android产物，保留签名、工具链与可复用依赖下载。
 
 八项Secrets已配置：LEES_CLASH_KEYSTORE_BASE64、LEES_CLASH_STORE_PASSWORD、LEES_CLASH_KEY_PASSWORD、CF_API_TOKEN及四项TENCENT_COS配置。不得把值写入源码 / 日志。镜像流程使用锁定COS SDK和Wrangler，不安装到本机系统环境。
 
@@ -103,17 +105,21 @@ ARM64 AVD的APK＋原生库目录占用89.65→112.76 MiB（增加23.11）；通
 
 - 版本：**1.0.0 / versionCode3**，标签`v1.0.0`；[私有Release](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)。
 - 范围：用户明确选择私有Release＋公开COS / R2镜像，不附源码包；仓库保持私有，LICENSE / NOTICE及原有许可继续保留。
-- 本地验收：四ABI / 通用原签名R8重建通过；JVM19项、Go宿主12项、发版脚本25项通过。五包原证书 / CPU / 16KB对齐通过；API35 ARM64与API37 / 16KB正式包均验证导入、VPN实际转发、LAN端口、内存和DNS清理。
+- 本地验收：当前单通用包119.61MiB，原证书 / 四ABI CPU / 压缩 / 16KB审核通过；JVM19项、完整Lint零错误（62项非阻断警告）、发版脚本26项通过。API35 ARM64当前正式R8包验证导入、VPN实际转发、LAN端口、内存和DNS清理；分页主动加入额外连接后连续两次通过，生命周期回归通过。既有Go宿主12项、API37 / 16KB正式包证据保留。
 - 远端状态：用户已明确恢复1.0.0提交与发版，本轮执行完整构建门禁和镜像校验，成功后登记结果与清理位置。
 - 旧0.0.1仅为本地验收基线；1.0.0最终APK、更新源和SHA256SUMS由本轮发行产物提供，不使用旧包哈希。
 
 
 ## 流程同步修正
 
-本次在资产发布前停止首轮任务，补齐了远端ELF / 16KB / 压缩打包门禁与R8映射检查，Go禁止自动切换工具链。COS与R2列表必须显式给出有效分页结束状态；信息缺失或分页不完整时不删除旧对象。新增构造ELF、缺失分页及COS禁止下载 / 元数据损坏 / 回滚 / 同版重试回归，发版辅助测试共25项；当前真实五包也通过同一审核脚本。
+本次在资产发布前停止首轮任务，补齐了远端ELF / 16KB / 压缩打包门禁与R8映射检查，Go禁止自动切换工具链。COS与R2列表必须显式给出有效分页结束状态；信息缺失或分页不完整时不删除旧对象。新增构造ELF、缺失分页及COS禁止下载 / 元数据损坏 / 回滚 / 同版重试回归，发版辅助测试共26项；既有原签名基线也通过同一审核脚本。
 
 首次完整Linux构建因磁盘剩余50MB而在复制原生库时失败，未发布资产；失败附件上传另受Actions存储额度限制。已增加临时构建机空间准备与20GiB门禁，并将失败诊断改为运行日志输出。该修正不删除其他仓库的Actions附件，也不要求扩大账户存储。
 
 用户随后明确禁止COS下载，已在镜像上传前取消当轮任务；COS没有发生对象正文下载。上传摘要校验与HEAD元数据用法见[腾讯云MD5校验](https://cloud.tencent.com/document/product/436/36427)及[HEAD元数据查询](https://cloud.tencent.com/document/product/436/65828)。本机独立发行复核也只对COS发HEAD请求；完整APK重新下载与签名审核使用GitHub资产，不消耗COS对象下载流量。
 
 Cloudflare分页结构见[官方List Objects](https://developers.cloudflare.com/api/resources/r2/subresources/buckets/subresources/objects/methods/list/)，COS分页语义见[官方列出对象说明](https://cloud.tencent.cn/document/product/436/65647)。以上修正不改变应用功能或签名；1.0.0标签在发布前对齐流程修正提交，已有完整Release保持不可覆盖。
+
+构建耗时修复：原先CMake任务名前缀不含flavor，却同时附加Alpha / Meta依赖，导致Alpha Release执行8个Go编译、单ABI Debug执行2个。实际Gradle任务图现分别为4个 / 1个，Meta仍可独立构建；Go先于CMake执行。设备回归调整到正式包构建之前，分页 / 生命周期测试使用独立夹具域名，并主动加入额外连接验证隔离，避免设备背景连接数影响断言。
+
+完整Lint补验发现并修正ClientApp将LocalContext强转Activity的问题，现使用现有Activity Compose依赖提供的LocalActivity；未屏蔽Lint错误或批量升级依赖。

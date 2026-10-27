@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from stage import ABIS, digest, stage, version_of
+from stage import digest, stage, version_of
 from mirror import load_assets, publish, publish_cos
 from signing import restore
 from published import is_published
@@ -24,17 +24,13 @@ class PublicationTests(unittest.TestCase):
         folder.mkdir(parents=True)
         (self.root / 'docs').mkdir()
         (self.root / 'CHANGELOG.md').write_text('# 更新日志\n\n## 未发布\n\nFuture change\n\n## 0.1.1 (2026-10-27)\n\nRelease notes\n\n## 0.1.0 (2026-10-26)\n\nOlder notes\n')
-        elements = []
-        for abi in sorted(ABIS | {'universal'}):
-            name = abi + '.apk'
-            (folder / name).write_bytes(b'apk-' + abi.encode())
-            elements.append(dict(versionName='0.1.1', versionCode=2, outputFile=name,
-                                 filters=[] if abi == 'universal' else [dict(filterType='ABI', value=abi)]))
+        (folder / 'universal.apk').write_bytes(b'apk-universal')
+        elements = [dict(versionName='0.1.1', versionCode=2, outputFile='universal.apk', filters=[])]
         self.metadata = folder / 'output-metadata.json'
         self.metadata.write_text(json.dumps(dict(applicationId='io.github.leenban.clash', elements=elements)))
         self.assets = self.root / 'assets'
 
-    def test_stage_requires_all_abis_and_canonical_identity(self):
+    def test_stage_requires_universal_apk_and_canonical_identity(self):
         metadata = json.loads(self.metadata.read_text())
         metadata['applicationId'] += '.verify'
         self.metadata.write_text(json.dumps(metadata))
@@ -47,13 +43,27 @@ class PublicationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             stage(self.root, 'v0.1.1', self.assets)
 
+    def test_stage_rejects_split_or_multiple_apks(self):
+        original = self.metadata.read_text()
+        for split in (True, False):
+            with self.subTest(split=split):
+                metadata = json.loads(original)
+                if split:
+                    metadata['elements'][0]['filters'] = [dict(filterType='ABI', value='arm64-v8a')]
+                else:
+                    metadata['elements'].append(dict(metadata['elements'][0]))
+                self.metadata.write_text(json.dumps(metadata))
+                with self.assertRaises(ValueError):
+                    stage(self.root, 'v0.1.1', self.assets)
+                self.assertFalse(self.assets.exists())
+
     def test_version_carry_and_complete_asset_checksums(self):
         with self.assertRaises(ValueError):
             version_of('v0.1.50')
         stage(self.root, 'v0.1.1', self.assets)
         manifest, files = load_assets(self.assets)
         self.assertEqual('Release notes', manifest['notes'])
-        self.assertEqual(6, len(files))
+        self.assertEqual(2, len(files))
         self.assertEqual(digest(self.assets / manifest['apk']), manifest['sha256'])
         (self.assets / 'unexpected.apk').write_bytes(b'bad')
         with self.assertRaises(ValueError):
@@ -78,7 +88,7 @@ class PublicationTests(unittest.TestCase):
         publish(self.assets, 'https://example.test', upload,
                 lambda version: events.append(('cleanup', version)), self.remote(storage, events))
         feed = events.index(('upload', 'latest-lees-clash.json'))
-        self.assertEqual(6, sum(kind == 'fetch' and name != 'latest-lees-clash.json' for kind, name in events[:feed]))
+        self.assertEqual(2, sum(kind == 'fetch' and name != 'latest-lees-clash.json' for kind, name in events[:feed]))
         self.assertEqual(('cleanup', '0.1.1'), events[-1])
 
     def test_bad_remote_package_keeps_feed_and_old_packages(self):
@@ -135,9 +145,9 @@ class PublicationTests(unittest.TestCase):
         with patch('mirror.urllib.request.urlopen', side_effect=AssertionError('HTTP downloads forbidden')):
             publish_cos(self.assets, client, 'bucket')
         feed = events.index(('upload', 'latest-lees-clash.json'))
-        self.assertEqual(6, sum(kind == 'head' and name != 'latest-lees-clash.json' for kind, name in events[:feed]))
+        self.assertEqual(2, sum(kind == 'head' and name != 'latest-lees-clash.json' for kind, name in events[:feed]))
         self.assertEqual(('head', 'latest-lees-clash.json'), events[-1])
-        self.assertEqual(7, client.put_object.call_count)
+        self.assertEqual(3, client.put_object.call_count)
         client.get_object.assert_not_called()
         client.list_objects.assert_called_once()
 
@@ -190,7 +200,6 @@ class PublicationTests(unittest.TestCase):
 
     def test_existing_first_release_must_have_complete_assets(self):
         expected = {'latest-lees-clash.json', 'lees-clash-0.0.1.apk', 'lees-clash-0.0.1-SHA256SUMS.txt'}
-        expected |= {f'lees-clash-0.0.1-{abi}.apk' for abi in ABIS}
         release = dict(tag_name='v0.0.1', draft=False, prerelease=False,
                        assets=[dict(name=name, state='uploaded', size=1) for name in expected])
         with patch('published.urllib.request.urlopen', return_value=io.BytesIO(json.dumps(release).encode())):

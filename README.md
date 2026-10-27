@@ -20,13 +20,13 @@
 
 ## 安装与更新
 
-最低 Android 8.0 / API 26。提供 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 和通用 APK；按设备架构选择，无法确认时使用通用包。ARM64 安装包约 **46 MiB**，通用包约 **120 MiB**，全部功能与 Geo 数据保留。
+最低 Android 8.0 / API 26。只提供一份约 **120 MiB** 的通用 APK，内含 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 四架构，无需选择安装包；全部功能与 Geo 数据保留。
 
-[ARM64 下载](https://releases.angelolee.cn/lees-clash-1.0.0-arm64-v8a.apk) · [通用包下载](https://releases.angelolee.cn/lees-clash-1.0.0.apk) · [备用通用包](https://plt-releases.leenbsl.workers.dev/lees-clash-1.0.0.apk)
+[通用包下载](https://plt-releases.leenbsl.workers.dev/lees-clash-1.0.0.apk) · [GitHub 发行版](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)
 
 安装时按系统提示允许安装来源，首次启用代理需授予 VPN 权限。应用使用独立签名，升级须使用同一签名的安装包。应用内手动检查更新，下载后校验大小、SHA-256、包名、版本和签名。
 
-Release 原生库在安装时解压，以减少 APK 下载体积；ARM64 的 APK 加原生库占用会比未压缩打包增加约23 MiB，实测范围见[发布文档](docs/RELEASE.md#安装包体积)。本地备份包含订阅链接和密钥，保存和传递时请按敏感文件处理。
+Release 原生库在安装时只提取设备所需架构，以减少 APK 下载体积；精简对照及实际占用见[发布文档](docs/RELEASE.md#安装包体积)。本地备份包含订阅链接和密钥，保存和传递时请按敏感文件处理。
 
 ## 本地开发与验证
 
@@ -44,7 +44,7 @@ Windows 使用 `pwsh -File scripts/Build.ps1`。签名准备、完整依赖、�
 
 ## 发行与维护
 
-源码和 GitHub Release 使用当前私有仓；COS 为主下载镜像，R2 为备用镜像。Actions 仅手动触发，固定版本标签后执行构建、签名、R8 运行和产物校验，再上传并校验镜像。发行流程见[构建与发布](docs/RELEASE.md)，后续工作与清理记录见[交接文档](docs/HANDOFF.md)。
+源码和 GitHub Release 使用当前私有仓，安装包同步到 COS / R2；本页下载入口使用 R2。推送版本标签自动发版，手动指定标签可重试镜像；先做隔离设备回归，再执行单测、Lint、通用包签名构建、R8 运行与产物审核。COS 发行验收只做上传摘要与 HEAD 元数据检查。流程见[构建与发布](docs/RELEASE.md)，后续工作与清理记录见[交接文档](docs/HANDOFF.md)。
 
 [界面与品牌规范](docs/UI-DESIGN.md) · [来源与固定版本](docs/UPSTREAM.md) · [隐私政策](PRIVACY_POLICY.md)
 

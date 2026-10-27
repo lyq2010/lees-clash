@@ -63,16 +63,18 @@ afterEvaluate {
 }
 
 val abis = listOf("arm64-v8a" to "Arm64V8a", "armeabi-v7a" to "ArmeabiV7a", "x86" to "X86", "x86_64" to "X8664")
+val injectedAbis = providers.gradleProperty("android.injected.build.abi").orNull?.split(',')
 
 androidComponents.onVariants { variant ->
     val cmakeName = if (variant.buildType == "debug") "Debug" else "RelWithDebInfo"
-
-    abis.forEach { (abi, goAbi) ->
-        tasks.configureEach {
-            if (name.startsWith("buildCMake$cmakeName[$abi]")) {
-                dependsOn("externalGolangBuild${variant.name.capitalizeUS()}$goAbi")
-                println("Set up dependency: $name -> externalGolangBuild${variant.name.capitalizeUS()}$goAbi")
-            }
+    val goTasks = abis.filter { injectedAbis == null || it.first in injectedAbis }.map { (_, goAbi) ->
+        "externalGolangBuild${variant.name.capitalizeUS()}$goAbi"
+    }
+    tasks.configureEach {
+        // CMake task names omit the flavor. Add dependencies only to the variant's merge task.
+        if (name == "merge${variant.name.capitalizeUS()}NativeLibs") dependsOn(goTasks)
+        if (name.startsWith("configureCMake$cmakeName[") || name.startsWith("buildCMake$cmakeName[")) {
+            mustRunAfter(goTasks)
         }
     }
 }

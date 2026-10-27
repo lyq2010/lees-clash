@@ -8,13 +8,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from prune import prune_cos, prune_r2, cloudflare_request
-from stage import ABIS, digest, version_of
+from stage import digest, version_of
 
 
 def load_assets(folder):
     manifest = json.loads((folder / "latest-lees-clash.json").read_text(encoding="utf-8"))
     version = version_of("v" + manifest["version"])
-    names = {f"lees-clash-{version}.apk"} | {f"lees-clash-{version}-{abi}.apk" for abi in ABIS}
+    names = {f"lees-clash-{version}.apk"}
     sums = f"lees-clash-{version}-SHA256SUMS.txt"
     if {p.name for p in folder.iterdir() if p.is_file()} != names | {sums, "latest-lees-clash.json"}:
         raise ValueError("Unexpected or incomplete release assets")

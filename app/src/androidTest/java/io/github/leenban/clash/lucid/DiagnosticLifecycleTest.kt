@@ -27,6 +27,7 @@ class DiagnosticLifecycleTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val repository = ClientRepository(context)
         val sockets = mutableListOf<Socket>()
+        val fixtureHost = "lifecycle.lees-clash.test"
         lateinit var vm: ClientViewModel
         suspend fun await(check: () -> Boolean) {
             withTimeout(15000) { while (!check()) delay(100) }
@@ -60,6 +61,7 @@ class DiagnosticLifecycleTest {
                     assertNull(context.startClashService())
                     await { vm.state.value.running }
                     awaitRunningProfile(context)
+                    scenario.onActivity { vm.search(fixtureHost) }
                     withContext(Dispatchers.IO) {
                         repeat(2) {
                             val socket = Socket("127.0.0.1", 17890)
@@ -68,13 +70,13 @@ class DiagnosticLifecycleTest {
                             socket
                                 .getOutputStream()
                                 .write(
-                                    "GET http://lees-clash.test:18080/hold HTTP/1.1\r\nHost: lees-clash.test:18080\r\nConnection: close\r\n\r\n"
+                                    "GET http://$fixtureHost:18080/hold HTTP/1.1\r\nHost: $fixtureHost:18080\r\nConnection: close\r\n\r\n"
                                         .toByteArray()
                                 )
                             assertEquals('H'.code, socket.getInputStream().read())
                         }
                     }
-                    await { vm.state.value.connections.total == 2 }
+                    await { vm.state.value.connectionQuery == fixtureHost && vm.state.value.connections.total == 2 }
                     // The UI intentionally unbinds its service when hidden. Retain the existing
                     // Binder for test control; do not rebind the background UI just to inspect it.
                     val diagnostic = withClash { this }
@@ -89,7 +91,7 @@ class DiagnosticLifecycleTest {
                                     buildJsonObject { put("id", closed) }.toString(),
                                 )
                             )
-                            DiagnosticJson.checked(diagnostic.queryDiagnostics("connections", "{}"))
+                            DiagnosticJson.checked(diagnostic.queryDiagnostics("connections", buildJsonObject { put("query", fixtureHost) }.toString()))
                         }
                     val actual =
                         DiagnosticJson.format.decodeFromString(

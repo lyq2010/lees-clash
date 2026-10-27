@@ -158,7 +158,7 @@ class NativeIntegrationTest {
                             connections.items.isNotEmpty(),
                         )
                         val connection = connections.items.first()
-                        assertEquals("Domain", connection.rule)
+                        assertEquals("DomainSuffix", connection.rule)
                         assertTrue(connection.chains.contains("Local-B"))
                         repository.diagnostic("close", id = connection.id)
                         request.await()
