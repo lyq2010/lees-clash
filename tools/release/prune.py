@@ -59,7 +59,8 @@ def prune_r2(request, bucket_path, version):
         keys.extend(item["key"] for item in page.get("result", []) or [])
         info = page.get("result_info") or {}
         if type(info.get("is_truncated")) is not bool:
-            raise ValueError("Missing R2 pagination status; nothing deleted")
+            shape = {key: type(value).__name__ for key, value in page.items()}
+            raise ValueError(f"Missing R2 pagination status; nothing deleted; response fields={shape}, result_info={info}")
         if not info["is_truncated"]:
             break
         cursor = info.get("cursor")
