@@ -1,4 +1,4 @@
-name: Lee's Clash private release
+name: Lee's Clash release
 "on":
   push:
     tags: ['v*']
@@ -44,11 +44,8 @@ jobs:
           ref: main
           fetch-depth: 0
           persist-credentials: false
-      - name: Require private source and main ancestry
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Require release source on main
         run: |
-          test "$(gh repo view --json visibility --jq .visibility)" = PRIVATE
           git merge-base --is-ancestor "$TAG^{commit}" origin/main
       - name: Recognize immutable release for mirror retry
         id: existing
@@ -101,15 +98,6 @@ jobs:
         if: steps.existing.outputs.published != 'true'
         working-directory: core/src/main/golang
         run: go test -v ./native/extension ./native/script ./native/diagnostics ./native/geoasset ./native/preview
-      - name: Build isolated Debug test packages
-        if: steps.existing.outputs.published != 'true'
-        run: |
-          bash gradlew :app:assembleAlphaDebug :app:assembleAlphaDebugAndroidTest -Pandroid.injected.build.abi=x86_64 '-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8' -Pkotlin.compiler.execution.strategy=in-process --max-workers=2 --no-daemon --console=plain
-      - name: Run isolated emulator tests
-        if: steps.existing.outputs.published != 'true'
-        run: |
-          sudo chmod a+rw /dev/kvm
-          bash "$RUNNER_TEMP/lees-clash-verify-android.sh" debug
       - name: Restore independent Clash signing
         if: steps.existing.outputs.published != 'true'
         env:
@@ -122,7 +110,9 @@ jobs:
         run: bash gradlew :app:testAlphaDebugUnitTest :app:lintAlphaRelease :app:assembleAlphaRelease '-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8' -Pkotlin.compiler.execution.strategy=in-process --max-workers=2 --no-daemon --console=plain
       - name: Verify signed R8 runtime
         if: steps.existing.outputs.published != 'true'
-        run: bash "$RUNNER_TEMP/lees-clash-verify-android.sh" release
+        run: |
+          sudo chmod a+rw /dev/kvm
+          bash "$RUNNER_TEMP/lees-clash-verify-android.sh" release
       - name: Verify identity, independent signing and stage artifacts
         if: steps.existing.outputs.published != 'true'
         run: |
@@ -130,7 +120,7 @@ jobs:
           grep -q '^# compiler: R8' app/build/outputs/mapping/alphaRelease/mapping.txt
           python3 -B tools/release/audit_apk.py app/build/outputs/apk/alpha/release/*.apk
           python3 -B tools/release/stage.py "$TAG"
-      - name: Publish immutable assets in this private repository
+      - name: Publish immutable release assets
         if: steps.existing.outputs.published != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -185,7 +175,7 @@ jobs:
           persist-credentials: false
       - name: Test cleanup boundaries
         run: python3 -B -m unittest discover -s tools/release/tests -v
-      - name: Download verified private release assets
+      - name: Download verified release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download "$TAG" --repo "$RELEASE_REPOSITORY" --dir assets

@@ -22,6 +22,7 @@ class NavigationSmokeTest {
     private fun screenshot(name: String) {
         val expected = runBlocking { ClientRepository(compose.activity).active()?.uuid }
         val model = ViewModelProvider(compose.activity)[ClientViewModel::class.java]
+        compose.activityRule.scenario.onActivity { model.changed() }
         compose.waitUntil(10000) {
             model.state.value.active?.uuid == expected && !model.state.value.pageLoading
         }
@@ -59,7 +60,12 @@ class NavigationSmokeTest {
         screenshot("network-light")
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("配置覆写").performClick()
-        compose.onNodeWithText("HTTP 端口").assertIsDisplayed()
+        val model = ViewModelProvider(compose.activity)[ClientViewModel::class.java]
+        compose.waitUntil(15000) {
+            !model.state.value.pageLoading &&
+                compose.onAllNodesWithText("HTTP 端口").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("HTTP 端口").performScrollTo().assertIsDisplayed()
         screenshot("overrides-light")
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("首页").performClick()

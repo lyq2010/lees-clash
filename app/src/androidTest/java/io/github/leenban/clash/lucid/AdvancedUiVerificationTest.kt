@@ -56,6 +56,8 @@ class AdvancedUiVerificationTest {
             compose.onNodeWithContentDescription("目标策略").performTextReplacement("DIRECT")
             screenshot("extension-rule-form")
             compose.onNodeWithText("完成").performClick()
+            compose.onNode(hasScrollToNodeAction())
+                .performScrollToNode(hasText("DOMAIN,ui-extension.test,DIRECT"))
             compose.onNodeWithText("DOMAIN,ui-extension.test,DIRECT").assertIsDisplayed()
             compose.onNodeWithText("保存").performClick()
             compose.waitUntil(15000) { !vm.state.value.busy }

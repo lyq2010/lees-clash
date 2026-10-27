@@ -54,11 +54,13 @@ if [[ "$mode" = debug ]]; then
   adb -s "$serial" shell am instrument -w -e class 'io.github.leenban.clash.lucid.NativeIntegrationTest#prepareLocalProfile' io.github.leenban.clash.test/androidx.test.runner.AndroidJUnitRunner | tee "$RUNNER_TEMP/clash-verification/prepare.txt"
   grep -Eq '^OK \([0-9]+ tests?\)' "$RUNNER_TEMP/clash-verification/prepare.txt"
   classes=(NativeIntegrationTest BinderCancellationTest HomeUiTest FeedbackUiTest ProfileWorkflowTest DiagnosticPagingTest DiagnosticLifecycleTest NavigationSmokeTest ExtendedUiVerificationTest DeviceFeatureVerificationTest MemoryRegressionTest LocalBackupVerificationTest ProfileExtensionVerificationTest NetworkFeatureVerificationTest AdvancedUiVerificationTest StressVerificationTest EncryptedProfileVerificationTest SystemEntryVerificationTest SystemDocumentWorkflowTest OverrideCombinationsVerificationTest SubscriptionDetailsVerificationTest DnsFailureVerificationTest HomeEntryVerificationTest)
+  failed=0
   for class in "${classes[@]}"; do
     log="$RUNNER_TEMP/clash-verification/$class.txt"
     adb -s "$serial" shell am instrument -w -e class "io.github.leenban.clash.lucid.$class" io.github.leenban.clash.test/androidx.test.runner.AndroidJUnitRunner | tee "$log"
-    grep -Eq '^OK \([0-9]+ tests?\)' "$log"
+    if ! grep -Eq '^OK \([0-9]+ tests?\)' "$log"; then failed=1; fi
   done
+  test "$failed" -eq 0
 else
   boot clash-release
   release_apk="$(find app/build/outputs/apk/alpha/release -name '*.apk' -print -quit)"

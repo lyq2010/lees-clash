@@ -89,12 +89,12 @@ JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests
 
 ## 发版流程
 
-参考[Music发行工作流](https://github.com/lyq2010/lees-music/blob/cbb5965b60d8b3c1f709e663a610e489f800a315/.github/workflows/release.yml)的顺序，保留本项目Go内核、四ABI通用包、独立签名与16KB门禁。
+参考[上游CMFA发行工作流](https://github.com/MetaCubeX/ClashMetaForAndroid/blob/1a4f949213fcbb7f0c9e2a4a21138642d84b8f22/.github/workflows/build-release.yaml)的直接Release构建方式，以及[Music发行工作流](https://github.com/lyq2010/lees-music/blob/cbb5965b60d8b3c1f709e663a610e489f800a315/.github/workflows/release.yml)的私有发布 / 镜像顺序，保留本项目Go内核、四ABI通用包、独立签名与16KB门禁。
 
 1. 更新version.properties、CHANGELOG及交接 / 矩阵，完成本地验证；发布说明从CHANGELOG对应章节提取。
 2. 提交并推送main及`vMAJOR.MINOR.PATCH`标签，标签推送自动触发发行；手动指定已发布标签可重试镜像。流程先读取main的发行工具，校验私有仓和标签属于main历史，再判断是否已有完整不可变Release。
 3. 新发行检出标签源码，移除临时构建机不用的预装.NET / PowerShell及NDK / CMake，确认至少20GiB可用后安装锁定工具；本机工具链不受影响。仅用锁定的GitHub官方Actions。构建缓存支持前缀恢复，并在测试失败时保存可复用依赖及Go编译缓存，避免每次失败重新冷编译。
-4. 先执行Go宿主测试、单ABI Debug构建及限定回环夹具的隔离设备回归；通过后才恢复正式签名，执行JVM单测、完整Lint及通用Release构建，再实际运行原签名R8包。CMake依赖绑定到当前变体，单ABI Debug只编译一份Alpha内核，通用Release的四ABI各编译一次，不再附带Meta编译。
+4. 执行Go宿主测试、恢复正式签名，完成JVM单测、完整Lint及通用Release构建，再在全新模拟器实际运行原签名R8包。发行流程不额外构建Debug应用和测试APK；完整23类Debug设备 / UI截图回归独立在`lees-clash-verify.yml`，代码PR或手动指定分支 / 标签运行。CMake依赖绑定到当前变体，通用Release的四ABI各编译一次，不再附带Meta编译。
 5. 审核R8映射、包名 / 版本、原证书、四ABI真实ELF CPU、64位LOAD至少16KB、APK zipalign及原生库压缩。只暂存并发布`lees-clash-<版本>.apk`、SHA256SUMS和latest-lees-clash.json，共三项资产；不生成或发布分架构APK。已有完整Release不覆盖。
 6. 发布后COS / R2并行同步，镜像工具从main读取，便于修复后重试且保持发行标签不变。**发版验收禁止下载COS对象正文，包括APK、校验表和更新源**：上传启用`EnableMD5=True`，由服务端核对Content-MD5；之后只用HEAD核对大小、上传响应ETag和SHA-256 / versionCode元数据。ETag仅与上传响应比较，不当作MD5。R2继续完整回读校验SHA-256。COS已有更新源缺版本元数据或同版本摘要冲突时停止，不下载正文。
 7. 新镜像验证完成后，按精确Clash文件名和旧版本清理旧包；分页信息缺失 / 非法、哈希或feed检查失败时不清理，不碰其他项目 / 嵌套对象 / GitHub历史Release。随后按授权直接删除本地临时、构建 / 测试 / 截图 / 验收和Android产物，保留签名、工具链与可复用依赖下载。
@@ -105,6 +105,7 @@ JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests
 
 - 版本：**1.0.0 / versionCode3**，标签`v1.0.0`；[私有Release](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)。
 - 范围：用户明确选择私有Release＋公开COS / R2镜像，不附源码包；仓库保持私有，LICENSE / NOTICE及原有许可继续保留。
+- 临时可见性：用户另行授权本次发行期间公开仓库，以运行公开仓Actions；发行及双镜像成功后必须恢复PRIVATE，并复核实际可见性。公开期间源码 / 提交历史 / Actions日志可见，不能承诺改回私有可撤回已复制内容。此例外不改变后续默认私有仓策略。
 - 本地验收：当前单通用包119.61MiB，原证书 / 四ABI CPU / 压缩 / 16KB审核通过；JVM19项、完整Lint零错误（62项非阻断警告）、发版脚本26项通过。API35 ARM64当前正式R8包验证导入、VPN实际转发、LAN端口、内存和DNS清理；分页主动加入额外连接后连续两次通过，生命周期回归通过。既有Go宿主12项、API37 / 16KB正式包证据保留。
 - 远端状态：用户已明确恢复1.0.0提交与发版，本轮执行完整构建门禁和镜像校验，成功后登记结果与清理位置。
 - 旧0.0.1仅为本地验收基线；1.0.0最终APK、更新源和SHA256SUMS由本轮发行产物提供，不使用旧包哈希。
@@ -120,10 +121,14 @@ JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests
 
 Cloudflare分页结构见[官方List Objects](https://developers.cloudflare.com/api/resources/r2/subresources/buckets/subresources/objects/methods/list/)，COS分页语义见[官方列出对象说明](https://cloud.tencent.cn/document/product/436/65647)。以上修正不改变应用功能或签名；1.0.0标签在发布前对齐流程修正提交，已有完整Release保持不可覆盖。
 
-构建耗时修复：原先CMake任务名前缀不含flavor，却同时附加Alpha / Meta依赖，导致Alpha Release执行8个Go编译、单ABI Debug执行2个。实际Gradle任务图现分别为4个 / 1个，Meta仍可独立构建；Go先于CMake执行。设备回归调整到正式包构建之前，分页 / 生命周期测试使用独立夹具域名，并主动加入额外连接验证隔离，避免设备背景连接数影响断言。
+构建耗时修复：原先CMake任务名前缀不含flavor，却同时附加Alpha / Meta依赖，导致Alpha Release执行8个Go编译、单ABI Debug执行2个。实际Gradle任务图现分别为4个 / 1个，Meta仍可独立构建；Go先于CMake执行。分页 / 生命周期测试使用独立夹具域名，并主动加入额外连接验证隔离，避免设备背景连接数影响断言。
+
+对照上游后，将完整Debug回归从发行串行链移至独立验证Workflow，避免每次发版额外编译Debug和测试APK、启动两次模拟器，并让页面截图布局问题阻断正式包交付。发行继续执行Go / JVM单测、完整Lint、正式签名R8实际导入 / VPN转发 / LAN端口 / 内存 / DNS清理和资产审核；独立Debug回归仍保留全部23类及失败汇总。没有复制上游打印签名属性、浮动依赖升级或多架构APK发布方式。
 
 云端运行固定Ubuntu24.04，编译限制为2个worker / 2GiB堆，Kotlin编译在Gradle进程内完成，避免遗留编译守护进程。模拟器失败前先保存Android崩溃缓冲、进程退出原因、客体 / 宿主内存和进程RSS，再关闭设备；诊断在运行日志中输出。验证脚本从main保留到RUNNER_TEMP后再检出发行标签，修复云端工具时可复用同一源码标签和已保存缓存。
 
 缓存入口统一在main：标签事件只分发main的发行任务，发行源码仍检出指定标签。标签分支产生的缓存不能直接供main重试恢复；统一执行作用域后，各版本可恢复默认分支缓存。缓存key包含run_id / run_attempt，每次保存新快照，避免一次失败只缓存Debug后，后续完整构建无法更新同名旧缓存。
+
+云端导航回归曾在进入覆写页后立即检查尚未完成布局的字段，现先等待异步加载和字段节点，再滚动检查实际可见性。设备测试按类收集完整结果，任一类失败仍阻止发行，避免每次只暴露首个失败。运行40479762841已通过此前的配置准备、首页、原生集成、配置工作流、连接分页与生命周期测试，失败定位到导航测试第62行；崩溃缓冲为空，不能将该次失败归因为进程崩溃或内存不足。
 
 完整Lint补验发现并修正ClientApp将LocalContext强转Activity的问题，现使用现有Activity Compose依赖提供的LocalActivity；未屏蔽Lint错误或批量升级依赖。

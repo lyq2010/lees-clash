@@ -32,3 +32,5 @@ FlClash `7fd417fb9a9a277c6a9339a8ac87f907df7c25f7` 仅用于 Android 功能对�
 ## 自有项目复用
 
 更新协议、缓存 / 安装校验及发版顺序参考 `lyq2010/lees-music` 的 `d305079`。Clash 使用独立签名；未修改 Music 项目，未复制其凭据。传输改用 Android HTTPS，避免引入额外 HTTP 运行库。
+
+Android发行构建对照CMFA固定提交`1a4f949213fcbb7f0c9e2a4a21138642d84b8f22`的[build-release.yaml](https://github.com/MetaCubeX/ClashMetaForAndroid/blob/1a4f949213fcbb7f0c9e2a4a21138642d84b8f22/.github/workflows/build-release.yaml)与[build-debug.yaml](https://github.com/MetaCubeX/ClashMetaForAndroid/blob/1a4f949213fcbb7f0c9e2a4a21138642d84b8f22/.github/workflows/build-debug.yaml)。采用发行直接构建Release、Debug验证独立运行的划分；本项目额外保留正式包实际运行、签名 / ELF / 16KB与双镜像校验，仅发布通用APK。

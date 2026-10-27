@@ -44,7 +44,7 @@ Windows 使用 `pwsh -File scripts/Build.ps1`。签名准备、完整依赖、�
 
 ## 发行与维护
 
-源码和 GitHub Release 使用当前私有仓，安装包同步到 COS / R2；本页下载入口使用 R2。推送版本标签自动发版，手动指定标签可重试镜像；先做隔离设备回归，再执行单测、Lint、通用包签名构建、R8 运行与产物审核。COS 发行验收只做上传摘要与 HEAD 元数据检查。流程见[构建与发布](docs/RELEASE.md)，后续工作与清理记录见[交接文档](docs/HANDOFF.md)。
+源码和 GitHub Release 使用当前私有仓，安装包同步到 COS / R2；本页下载入口使用 R2。推送版本标签自动发版，手动指定标签可重试镜像；执行单测、Lint、通用包签名构建、R8 运行与产物审核，完整 Debug 设备回归使用独立验证 Workflow。COS 发行验收只做上传摘要与 HEAD 元数据检查。流程见[构建与发布](docs/RELEASE.md)，后续工作与清理记录见[交接文档](docs/HANDOFF.md)。
 
 [界面与品牌规范](docs/UI-DESIGN.md) · [来源与固定版本](docs/UPSTREAM.md) · [隐私政策](PRIVACY_POLICY.md)
 
