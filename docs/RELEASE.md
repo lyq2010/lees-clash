@@ -90,12 +90,12 @@ ARM64 AVD的APK＋原生库目录占用89.65→112.76 MiB（增加23.11）；通
 ## 发版流程
 
 1. 更新version.properties、CHANGELOG及交接 / 矩阵，完成本地门禁；发版说明从CHANGELOG匹配版本章节提取，不维护重复副本。
-2. 按明确授权提交并推送main，创建`vMAJOR.MINOR.PATCH`标签；工作流校验私有仓和main祖先关系。首次0.0.1已解除旧脚本0.1.0下限。
-3. 手动触发`.github/workflows/lees-clash-release.yml`并传tag。仅允许GitHub官方Actions；从独立Secrets恢复签名，固定Go / Android工具（GOTOOLCHAIN=local），验证JVM、Go、Android流程、R8实际转发和四ABI身份 / 签名。静态审核同时核对metadata版本 / ABI、真实ELF CPU、全部64位LOAD至少16KB、APK zipalign与原生库压缩；R8映射头缺失即停止。
+2. 按明确授权提交并推送main，创建`vMAJOR.MINOR.PATCH`标签；工作流校验私有仓和main祖先关系。标签须与version.properties及CHANGELOG对应，补丁号必须小于50。
+3. 手动触发`.github/workflows/lees-clash-release.yml`并传tag。临时构建机先移除不用的预装.NET / PowerShell及Android NDK / CMake，确认至少20GiB可用，再安装锁定组件；不作用于本机工具链。仅允许GitHub官方Actions；从独立Secrets恢复签名，固定Go / Android工具（GOTOOLCHAIN=local），验证JVM、Go、Android流程、R8实际转发和四ABI身份 / 签名。静态审核同时核对metadata版本 / ABI、真实ELF CPU、全部64位LOAD至少16KB、APK zipalign与原生库压缩；R8映射头缺失即停止。失败诊断在运行日志中限量输出，不依赖Actions附件存储额度。
 4. 发布五APK、SHA256SUMS和latest-lees-clash.json到本私有仓Release。已有完整版本不可覆盖，只允许重试镜像。
 5. COS主`https://releases.angelolee.cn`、R2备`https://plt-releases.leenbsl.workers.dev`先上传APK与校验表，实际验证大小 / SHA后发布更新源，再验证更新源。
 6. 仅在新镜像完全通过后按精确Clash文件名和旧版本筛选清理旧包；分页状态缺失 / 非法、分页失败、哈希失败或feed失败则不清理，不碰其他项目 / 嵌套对象 / GitHub历史Release。
-7. 远端成功并校验后，按本次授权移走本地临时文件、构建 / 测试产物、截图和测试AVD；保留签名、工具链与可复用依赖下载。
+7. 远端成功并校验后，按本次直接删除授权清理本地临时文件、构建 / 测试产物、截图和测试AVD；保留签名、工具链与可复用依赖下载。
 
 八项Secrets已配置：LEES_CLASH_KEYSTORE_BASE64、LEES_CLASH_STORE_PASSWORD、LEES_CLASH_KEY_PASSWORD、CF_API_TOKEN及四项TENCENT_COS配置。不得把值写入源码 / 日志。镜像流程使用锁定COS SDK和Wrangler，不安装到本机系统环境。
 
@@ -103,7 +103,7 @@ ARM64 AVD的APK＋原生库目录占用89.65→112.76 MiB（增加23.11）；通
 
 - 版本：**1.0.0 / versionCode3**，标签`v1.0.0`；[私有Release](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)。
 - 范围：用户明确选择私有Release＋公开COS / R2镜像，不附源码包；仓库保持私有，LICENSE / NOTICE及原有许可继续保留。
-- 本地验收：新增首页与工具功能后，四ABI / 通用原签名R8重建3m33s通过；JVM19项、Go宿主12项、发版脚本20项通过。五包原证书 / CPU / 16KB对齐通过；API35 ARM64与API37 / 16KB正式包均验证导入、VPN实际转发、LAN端口、内存和DNS清理。
+- 本地验收：四ABI / 通用原签名R8重建通过；JVM19项、Go宿主12项、发版脚本20项通过。五包原证书 / CPU / 16KB对齐通过；API35 ARM64与API37 / 16KB正式包均验证导入、VPN实际转发、LAN端口、内存和DNS清理。
 - 远端状态：用户已明确恢复1.0.0提交与发版，本轮执行完整构建门禁和镜像校验，成功后登记结果与清理位置。
 - 旧0.0.1仅为本地验收基线；1.0.0最终APK、更新源和SHA256SUMS由本轮发行产物提供，不使用旧包哈希。
 
@@ -112,4 +112,6 @@ ARM64 AVD的APK＋原生库目录占用89.65→112.76 MiB（增加23.11）；通
 
 本次在资产发布前停止首轮任务，补齐了远端ELF / 16KB / 压缩打包门禁与R8映射检查，Go禁止自动切换工具链。COS与R2列表必须显式给出有效分页结束状态；信息缺失或分页不完整时不删除旧对象。新增构造ELF与缺失分页mock回归，发版辅助测试共20项；当前真实五包也通过同一脚本审核。
 
-Cloudflare分页结构见[官方List Objects](https://developers.cloudflare.com/api/resources/r2/subresources/buckets/subresources/objects/methods/list/)，COS分页语义见[官方列出对象说明](https://cloud.tencent.cn/document/product/436/65647)。以上修正不改变应用功能或签名；未发布的1.0.0标签会对齐修正后的提交，已有完整Release保持不可覆盖。
+首次完整Linux构建因磁盘剩余50MB而在复制原生库时失败，未发布资产；失败附件上传另受Actions存储额度限制。已增加临时构建机空间准备与20GiB门禁，并将失败诊断改为运行日志输出。该修正不删除其他仓库的Actions附件，也不要求扩大账户存储。
+
+Cloudflare分页结构见[官方List Objects](https://developers.cloudflare.com/api/resources/r2/subresources/buckets/subresources/objects/methods/list/)，COS分页语义见[官方列出对象说明](https://cloud.tencent.cn/document/product/436/65647)。以上修正不改变应用功能或签名；1.0.0标签在发布前对齐流程修正提交，已有完整Release保持不可覆盖。
