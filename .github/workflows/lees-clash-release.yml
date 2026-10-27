@@ -18,7 +18,7 @@ env:
   RELEASE_REPOSITORY: ${{ github.repository }}
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: write
@@ -41,6 +41,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 -B tools/release/published.py
+      - name: Keep current runner verification tools
+        if: steps.existing.outputs.published != 'true'
+        run: cp tools/release/verify_android.sh "$RUNNER_TEMP/lees-clash-verify-android.sh"
       - name: Checkout release source
         if: steps.existing.outputs.published != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -85,12 +88,12 @@ jobs:
       - name: Build isolated Debug test packages
         if: steps.existing.outputs.published != 'true'
         run: |
-          bash gradlew :app:assembleAlphaDebug :app:assembleAlphaDebugAndroidTest -Pandroid.injected.build.abi=x86_64 --no-daemon --console=plain
+          bash gradlew :app:assembleAlphaDebug :app:assembleAlphaDebugAndroidTest -Pandroid.injected.build.abi=x86_64 '-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8' -Pkotlin.compiler.execution.strategy=in-process --max-workers=2 --no-daemon --console=plain
       - name: Run isolated emulator tests
         if: steps.existing.outputs.published != 'true'
         run: |
           sudo chmod a+rw /dev/kvm
-          bash tools/release/verify_android.sh debug
+          bash "$RUNNER_TEMP/lees-clash-verify-android.sh" debug
       - name: Restore independent Clash signing
         if: steps.existing.outputs.published != 'true'
         env:
@@ -100,10 +103,10 @@ jobs:
         run: python3 -B tools/release/signing.py
       - name: Test, lint and build the signed universal APK
         if: steps.existing.outputs.published != 'true'
-        run: bash gradlew :app:testAlphaDebugUnitTest :app:lintAlphaRelease :app:assembleAlphaRelease --no-daemon --console=plain
+        run: bash gradlew :app:testAlphaDebugUnitTest :app:lintAlphaRelease :app:assembleAlphaRelease '-Dorg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8' -Pkotlin.compiler.execution.strategy=in-process --max-workers=2 --no-daemon --console=plain
       - name: Verify signed R8 runtime
         if: steps.existing.outputs.published != 'true'
-        run: bash tools/release/verify_android.sh release
+        run: bash "$RUNNER_TEMP/lees-clash-verify-android.sh" release
       - name: Verify identity, independent signing and stage artifacts
         if: steps.existing.outputs.published != 'true'
         run: |
@@ -148,12 +151,12 @@ jobs:
           for path in sorted(folder.glob('*')):
               if path.is_file() and path.suffix in ('.txt', '.log'):
                   print(f'::group::{path.name}')
-                  print('\n'.join(path.read_text(errors='replace').splitlines()[-120:]))
+                  print('\n'.join(path.read_text(errors='replace').splitlines()[-250:]))
                   print('::endgroup::')
           PY
   mirrors:
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false

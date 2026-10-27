@@ -122,4 +122,6 @@ Cloudflare分页结构见[官方List Objects](https://developers.cloudflare.com/
 
 构建耗时修复：原先CMake任务名前缀不含flavor，却同时附加Alpha / Meta依赖，导致Alpha Release执行8个Go编译、单ABI Debug执行2个。实际Gradle任务图现分别为4个 / 1个，Meta仍可独立构建；Go先于CMake执行。设备回归调整到正式包构建之前，分页 / 生命周期测试使用独立夹具域名，并主动加入额外连接验证隔离，避免设备背景连接数影响断言。
 
+云端运行固定Ubuntu24.04，编译限制为2个worker / 2GiB堆，Kotlin编译在Gradle进程内完成，避免遗留编译守护进程。模拟器失败前先保存Android崩溃缓冲、进程退出原因、客体 / 宿主内存和进程RSS，再关闭设备；诊断在运行日志中输出。验证脚本从main保留到RUNNER_TEMP后再检出发行标签，修复云端工具时可复用同一源码标签和已保存缓存。
+
 完整Lint补验发现并修正ClientApp将LocalContext强转Activity的问题，现使用现有Activity Compose依赖提供的LocalActivity；未屏蔽Lint错误或批量升级依赖。
