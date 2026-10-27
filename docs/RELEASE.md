@@ -124,4 +124,6 @@ Cloudflare分页结构见[官方List Objects](https://developers.cloudflare.com/
 
 云端运行固定Ubuntu24.04，编译限制为2个worker / 2GiB堆，Kotlin编译在Gradle进程内完成，避免遗留编译守护进程。模拟器失败前先保存Android崩溃缓冲、进程退出原因、客体 / 宿主内存和进程RSS，再关闭设备；诊断在运行日志中输出。验证脚本从main保留到RUNNER_TEMP后再检出发行标签，修复云端工具时可复用同一源码标签和已保存缓存。
 
+缓存入口统一在main：标签事件只分发main的发行任务，发行源码仍检出指定标签。标签分支产生的缓存不能直接供main重试恢复；统一执行作用域后，各版本可恢复默认分支缓存。缓存key包含run_id / run_attempt，每次保存新快照，避免一次失败只缓存Debug后，后续完整构建无法更新同名旧缓存。
+
 完整Lint补验发现并修正ClientApp将LocalContext强转Activity的问题，现使用现有Activity Compose依赖提供的LocalActivity；未屏蔽Lint错误或批量升级依赖。
