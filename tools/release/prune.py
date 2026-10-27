@@ -50,23 +50,40 @@ def cloudflare_request(token, method, path, params=None):
 
 
 def prune_r2(request, bucket_path, version):
-    keys, cursor, seen = [], "", set()
+    keys, cursor, start_after, seen = [], "", "", set()
     while True:
         params = {"prefix": "lees-clash-", "per_page": "1000"}
         if cursor:
             params["cursor"] = cursor
+        elif start_after:
+            params["start_after"] = start_after
         page = request("GET", bucket_path, params)
-        keys.extend(item["key"] for item in page.get("result", []) or [])
+        items = page.get("result")
+        if not isinstance(items, list) or any(not isinstance(item.get("key"), str) for item in items):
+            raise ValueError("Invalid R2 object listing; nothing deleted")
+        page_keys = [item["key"] for item in items]
+        if start_after and any(key <= start_after for key in page_keys):
+            raise ValueError("R2 start_after did not advance; nothing deleted")
+        keys.extend(page_keys)
         info = page.get("result_info") or {}
+        # R2 may omit result_info entirely. Probe beyond the last key until an
+        # explicit empty page, rather than treating absent metadata as completion.
+        if "is_truncated" not in info:
+            if not page_keys:
+                break
+            start_after, cursor = max(page_keys), ""
+            continue
         if type(info.get("is_truncated")) is not bool:
-            shape = {key: type(value).__name__ for key, value in page.items()}
-            raise ValueError(f"Missing R2 pagination status; nothing deleted; response fields={shape}, result_info={info}")
+            raise ValueError("Invalid R2 pagination status; nothing deleted")
         if not info["is_truncated"]:
             break
         cursor = info.get("cursor")
         if not cursor or cursor in seen:
             raise ValueError("Invalid R2 pagination; nothing deleted")
         seen.add(cursor)
-    for key in stale_keys(keys, version):
+        start_after = ""
+    stale = stale_keys(keys, version)
+    print(f"R2 listing complete: {len(set(keys))} Clash objects, {len(stale)} older assets")
+    for key in stale:
         request("DELETE", bucket_path + "/" + urllib.parse.quote(key, safe=""))
         print(f"Deleted old Lee's Clash mirror: {key}")

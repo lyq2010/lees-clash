@@ -1,12 +1,16 @@
+import io
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from prune import stale_keys, prune_cos, prune_r2
 
 
 class CleanupTests(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(patch("sys.stdout", new=io.StringIO()))
+
     def test_only_older_exact_clash_assets(self):
         keys = ["lees-clash-0.1.0.apk", "lees-clash-0.1.0-arm64-v8a.apk", "lees-clash-0.1.0-SHA256SUMS.txt",
                 "lees-clash-0.1.1.apk", "lees-clash-0.1.2.apk", "latest-lees-clash.json",
@@ -51,8 +55,30 @@ class CleanupTests(unittest.TestCase):
             prune_cos(client, "bucket", "1.0.0")
         client.delete_object.assert_not_called()
 
-    def test_r2_missing_pagination_metadata_deletes_nothing(self):
+    def test_r2_missing_metadata_probes_next_page_before_deletion(self):
+        request = Mock(side_effect=[
+            {"result": [{"key": "lees-clash-0.1.0.apk"}]},
+            {"result": []}, {}])
+        prune_r2(request, "/objects", "1.0.0")
+        self.assertEqual("lees-clash-0.1.0.apk", request.call_args_list[1].args[2]["start_after"])
+        self.assertEqual(("DELETE", "/objects/lees-clash-0.1.0.apk"), request.call_args.args)
+
+    def test_r2_ignored_start_after_deletes_nothing(self):
         request = Mock(return_value={"result": [{"key": "lees-clash-0.1.0.apk"}]})
+        with self.assertRaises(ValueError):
+            prune_r2(request, "/objects", "1.0.0")
+        self.assertEqual(2, request.call_count)
+        self.assertTrue(all(call.args[0] == "GET" for call in request.call_args_list))
+
+    def test_r2_first_release_has_no_older_assets(self):
+        request = Mock(side_effect=[{"result": [
+            {"key": "lees-clash-1.0.0.apk"}, {"key": "lees-clash-1.0.0-SHA256SUMS.txt"}]}, {"result": []}])
+        prune_r2(request, "/objects", "1.0.0")
+        self.assertEqual(2, request.call_count)
+        self.assertTrue(all(call.args[0] == "GET" for call in request.call_args_list))
+
+    def test_r2_malformed_page_deletes_nothing(self):
+        request = Mock(return_value={"success": True})
         with self.assertRaises(ValueError):
             prune_r2(request, "/objects", "1.0.0")
         self.assertEqual(1, request.call_count)

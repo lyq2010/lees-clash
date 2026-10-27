@@ -17,6 +17,7 @@ from published import is_published
 
 class PublicationTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch("sys.stdout", new=io.StringIO()))
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
