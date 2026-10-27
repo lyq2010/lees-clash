@@ -105,15 +105,31 @@ JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests
 
 - 版本：**1.0.0 / versionCode3**，标签`v1.0.0`；[私有Release](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)。
 - 范围：用户明确选择私有Release＋公开COS / R2镜像，不附源码包；仓库保持私有，LICENSE / NOTICE及原有许可继续保留。
-- 临时可见性：用户另行授权本次发行期间公开仓库，以运行公开仓Actions；发行及双镜像成功后必须恢复PRIVATE，并复核实际可见性。公开期间源码 / 提交历史 / Actions日志可见，不能承诺改回私有可撤回已复制内容。此例外不改变后续默认私有仓策略。
+- 临时可见性：按用户授权曾短暂公开仓库执行本次发行；发行及双镜像成功后已恢复PRIVATE，并通过API复核。公开期间源码 / 提交历史 / Actions日志可见，恢复私有无法撤回已复制内容；后续默认保持私有。
 - 本地验收：当前单通用包119.61MiB，原证书 / 四ABI CPU / 压缩 / 16KB审核通过；JVM19项、完整Lint零错误（62项非阻断警告）、发版脚本29项通过。API35 ARM64当前正式R8包验证导入、VPN实际转发、LAN端口、内存和DNS清理；分页主动加入额外连接后连续两次通过，生命周期回归通过。既有Go宿主12项、API37 / 16KB正式包证据保留。
-- 远端状态：用户已明确恢复1.0.0提交与发版，本轮执行完整构建门禁和镜像校验，成功后登记结果与清理位置。
-- 旧0.0.1仅为本地验收基线；1.0.0最终APK、更新源和SHA256SUMS由本轮发行产物提供，不使用旧包哈希。
+- 远端结果：[发行Actions门禁](https://github.com/lyq2010/lees-clash/actions/runs/40484957377)、私有Release及COS / R2镜像全部通过；重新下载GitHub三项资产，复核通用APK原签名 / 版本 / 四ABI CPU / 原生库压缩 / 16KB对齐及校验表。COS仅进行上传Content-MD5校验和三项资产HEAD大小 / SHA-256元数据核对，未下载任何COS对象；R2更新源与Release一致，工作流已逐文件回读校验R2完整SHA-256。
+- 本地收尾：按用户授权累计直接删除约 **48.28 GiB** 临时文件、构建 / 测试 / 截图 / 验收 / Android产物及编译缓存；正式APK的本地副本已删除，交付位置为远端Release和双镜像。保留签名恢复材料、受限签名属性、工具链与可复用依赖下载。
 
+
+### 1.0.0正式资产
+
+以下为实际GitHub Release安装包；另附更新源和SHA256SUMS。COS通过上传MD5与HEAD元数据检查，R2通过完整SHA-256回读检查。
+
+| 文件 | 字节 | MiB | SHA-256 |
+|---|---:|---:|---|
+| lees-clash-1.0.0.apk | 125420679 | 119.61 | `1608f558af935ade5cc963c4a3a78cc86dc2f5482eba7176373a28c9d66e28c2` |
+
+[R2更新源](https://plt-releases.leenbsl.workers.dev/latest-lees-clash.json) · [SHA256SUMS](https://plt-releases.leenbsl.workers.dev/lees-clash-1.0.0-SHA256SUMS.txt)
+
+发行源码固定为`14e5ebb79f8ac7f3ba332a273edbfe56d93c11a1`，已发布的`v1.0.0`不再移动。R2仅单独重试镜像job，复用原构建和COS成功结果；最终实际列表为2个Clash资产、0个旧版资产。主线已保存包含四架构正式构建的缓存快照（约2.07GiB）；本地48.28GiB为多轮构建 / 清理累计删除量，不是单次磁盘净释放量。
+
+单通道失败时，从该run的jobs中取得`mirrors (r2)`的`databaseId`，调用GitHub REST的job rerun即可；镜像job检出main工具，修正镜像脚本无需移动发行标签、重建APK或重跑COS。
 
 ## 流程同步修正
 
 本次在资产发布前停止首轮任务，补齐了远端ELF / 16KB / 压缩打包门禁与R8映射检查，Go禁止自动切换工具链。COS列表要求有效分页结束状态；R2实际响应可能省略官方可选的result_info，因此支持start_after探测至空页，拒绝重复列表或不完整游标，收齐列表前不删除对象。首次发行没有旧版；0.1.0 / 0.1.1只用于单测夹具，测试输出已隔离，避免与实际镜像日志混淆。当前发版辅助测试共29项，覆盖ELF、分页边界、COS禁止下载 / 元数据损坏 / 回滚 / 同版重试；既有原签名基线也通过同一审核脚本。
+
+Music固定提交中的[清理脚本](https://github.com/lyq2010/lees-music/blob/cbb5965b60d8b3c1f709e663a610e489f800a315/tools/release/prune.py)以`if not info.get("is_truncated")`判断结束；本项目曾额外要求该字段必须为布尔值，与R2实际省略元数据的响应不兼容，导致镜像校验成功后清理检查失败。现已按实际响应修正并通过R2单job实跑。Music当前主线已移除发行Workflow，本文引用的是固定历史版本，链接仍有效。
 
 首次完整Linux构建因磁盘剩余50MB而在复制原生库时失败，未发布资产；失败附件上传另受Actions存储额度限制。已增加临时构建机空间准备与20GiB门禁，并将失败诊断改为运行日志输出。该修正不删除其他仓库的Actions附件，也不要求扩大账户存储。
 
