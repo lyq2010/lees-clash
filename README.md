@@ -6,13 +6,13 @@
 
 基于 CMFA / mihomo 的 Android 代理客户端，采用 Kotlin / Compose 与 Lucid 风格界面。
 
-[下载发行版](https://github.com/lyq2010/lees-clash/releases/tag/v0.0.1) · [更新日志](CHANGELOG.md) · [开发维护](docs/HANDOFF.md) · [开发矩阵](docs/DEVELOPMENT-MATRIX.md)
+[下载发行版](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0) · [更新日志](CHANGELOG.md) · [开发维护](docs/HANDOFF.md) · [开发矩阵](docs/DEVELOPMENT-MATRIX.md)
 
 </div>
 
 ## 当前版本与能力
 
-源码版本 **0.0.1**，目前完成本地验包，发布按用户要求暂缓；以下下载链接在发行后可用。支持配置链接、文件和二维码导入，配置编辑与更新，策略组选择和测速，以及停止代理后的策略与规则浏览。首页可查看订阅用量与到期并直接更新，网络页提供手动 IP 检查、按需网络与局域网共享。
+源码版本 **1.0.0**。支持配置链接、文件和二维码导入，配置编辑与更新，策略组选择和测速，以及停止代理后的策略与规则浏览。首页可查看订阅用量与到期并直接更新，网络页提供手动 IP 检查、按需网络与局域网共享。
 
 提供连接、规则、DNS、流量和日志诊断，内存详情与手动清理 DNS 缓存，完整覆写编辑、五类 Geo 数据管理、两类 age 加密配置、本地备份恢复、自定义规则与受限配置脚本。按需网络默认关闭；WebDAV 不在当前范围。
 
@@ -22,7 +22,7 @@
 
 最低 Android 8.0 / API 26。提供 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 和通用 APK；按设备架构选择，无法确认时使用通用包。ARM64 安装包约 **46 MiB**，通用包约 **120 MiB**，全部功能与 Geo 数据保留。
 
-[ARM64 下载](https://releases.angelolee.cn/lees-clash-0.0.1-arm64-v8a.apk) · [通用包下载](https://releases.angelolee.cn/lees-clash-0.0.1.apk) · [备用通用包](https://plt-releases.leenbsl.workers.dev/lees-clash-0.0.1.apk)
+[ARM64 下载](https://releases.angelolee.cn/lees-clash-1.0.0-arm64-v8a.apk) · [通用包下载](https://releases.angelolee.cn/lees-clash-1.0.0.apk) · [备用通用包](https://plt-releases.leenbsl.workers.dev/lees-clash-1.0.0.apk)
 
 安装时按系统提示允许安装来源，首次启用代理需授予 VPN 权限。应用使用独立签名，升级须使用同一签名的安装包。应用内手动检查更新，下载后校验大小、SHA-256、包名、版本和签名。
 

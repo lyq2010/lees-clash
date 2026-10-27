@@ -1,6 +1,6 @@
 # 构建与发布
 
-更新日期：2026-10-27。版本由根`version.properties`维护：本次 **0.0.1 / code2**，补丁号范围0～49；后续版本名按该范围进位，versionCode必须单调递增。原未发布0.1.0 / code1仅为开发构建。
+更新日期：2026-10-27。版本由根`version.properties`维护：本次 **1.0.0 / code3**，补丁号范围0～49；后续版本名按该范围进位，versionCode必须单调递增。原0.1.0 / code1和0.0.1 / code2均为未发布开发构建。
 
 ## 本机工具与签名
 
@@ -101,21 +101,8 @@ ARM64 AVD的APK＋原生库目录占用89.65→112.76 MiB（增加23.11）；通
 
 ## 本次发行
 
-- 版本：**0.0.1 / versionCode2**，标签`v0.0.1`；[私有Release](https://github.com/lyq2010/lees-clash/releases/tag/v0.0.1)。
+- 版本：**1.0.0 / versionCode3**，标签`v1.0.0`；[私有Release](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)。
 - 范围：用户明确选择私有Release＋公开COS / R2镜像，不附源码包；仓库保持私有，LICENSE / NOTICE及原有许可继续保留。
 - 本地验收：新增首页与工具功能后，四ABI / 通用原签名R8重建3m33s通过；JVM19项、Go宿主12项、发版脚本13项通过。五包原证书 / CPU / 16KB对齐通过；API35 ARM64与API37 / 16KB正式包均验证导入、VPN实际转发、LAN端口、内存和DNS清理。
-- 远端状态：用户要求暂缓发版后，已按全部授权实现首页入口和工具页补齐；仍未推送 / 打标签 / 触发Actions / 发布。当前正式包保留供验看，远端成功后的最终产物清理尚未执行。
-
-### 首页补齐后的本地包
-
-最新五包暂存：`/Volumes/DISK/DevCache/lees-clash/release-001-verified-20261027-31b94b2c`。原证书和16KB ZIP / 64位ELF对齐全部通过，R8映射SHA-256：`f965383b6e2b8f070fb317df5d9a28777cb99c9a2be5700b03d739577376ec6c`。
-
-| 架构 | MiB | SHA-256 |
-|---|---:|---|
-| arm64-v8a | 46.29 | `0d11ac92b8f7f56e0ff64bc930eafca25e5048dbe445ac658023c74df9032d85` |
-| armeabi-v7a | 46.28 | `754792e346ab1f4d68f944ddf56d0bffe94047f4d93da62cdd050b7f3e1d57d9` |
-| universal | 119.61 | `6ade09ad024a39d7d293c39ebeae7bda67e888db2c68a011605bfab13b452343` |
-| x86 | 48.41 | `d35d0dfb9172f99ae8dbc0d1408bbb0a2633f61f17da37908a69551097b81e78` |
-| x86_64 | 48.17 | `dd5f0d9f20bec3d32ecbc172b36efcafaf839fb1870440fb86351e267769cc68` |
-
-构建和复验日志在外挂卷：`build-home-release.log`、`home-release-api35.log`、`home-release-api37.log`；新R8设备复验包含导入 / VPN实际转发、LAN真实端口、内存详情与DNS缓存清理。用户恢复发版前不要触发远端流程。
+- 远端状态：用户已明确恢复1.0.0提交与发版，本轮执行完整构建门禁和镜像校验，成功后登记结果与清理位置。
+- 旧0.0.1仅为本地验收基线；1.0.0最终APK、更新源和SHA256SUMS由本轮发行产物提供，不使用旧包哈希。
