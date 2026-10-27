@@ -35,6 +35,6 @@ if __name__ == "__main__":
         for directory in [goroot / "bin", sdk / "platform-tools", sdk / "emulator", sdk / "cmdline-tools/latest/bin"]:
             output.write(str(directory) + "\n")
     with open(os.environ["GITHUB_ENV"], "a") as output:
-        output.write(f"GOROOT={goroot}\n")
+        output.write(f"GOROOT={goroot}\nGOTOOLCHAIN=local\n")
     sdk = Path(os.environ["ANDROID_HOME"])
     Path("local.properties").write_text(f"sdk.dir={sdk}\nndk.dir={sdk / 'ndk' / spec['ndk']}\n")

@@ -18,7 +18,7 @@ class CleanupTests(unittest.TestCase):
         client = Mock()
         client.list_objects.side_effect = [
             {"Contents": [{"Key": "lees-clash-0.1.0.apk"}], "IsTruncated": "true", "NextMarker": "next"},
-            {"Contents": [{"Key": "lees-clash-0.1.1.apk"}]}]
+            {"Contents": [{"Key": "lees-clash-0.1.1.apk"}], "IsTruncated": "false"}]
         prune_cos(client, "bucket", "0.1.1")
         client.delete_object.assert_called_once_with(Bucket="bucket", Key="lees-clash-0.1.0.apk")
         self.assertEqual("next", client.list_objects.call_args.kwargs["Marker"])
@@ -33,7 +33,7 @@ class CleanupTests(unittest.TestCase):
     def test_r2_pagination_and_delete_scope(self):
         request = Mock(side_effect=[
             {"result": [{"key": "lees-clash-0.1.0.apk"}], "result_info": {"is_truncated": True, "cursor": "next"}},
-            {"result": [{"key": "latest-lees-clash.json"}, {"key": "lees-clash-0.1.1.apk"}]}, {}])
+            {"result": [{"key": "latest-lees-clash.json"}, {"key": "lees-clash-0.1.1.apk"}], "result_info": {"is_truncated": False}}, {}])
         prune_r2(request, "/objects", "0.1.1")
         self.assertEqual(("DELETE", "/objects/lees-clash-0.1.0.apk"), request.call_args.args)
         self.assertEqual(3, request.call_count)
@@ -42,4 +42,17 @@ class CleanupTests(unittest.TestCase):
         request = Mock(return_value={"result": [{"key": "lees-clash-0.1.0.apk"}], "result_info": {"is_truncated": True}})
         with self.assertRaises(ValueError):
             prune_r2(request, "/objects", "0.1.1")
+        self.assertEqual(1, request.call_count)
+
+    def test_cos_missing_pagination_metadata_deletes_nothing(self):
+        client = Mock()
+        client.list_objects.return_value = {"Contents": [{"Key": "lees-clash-0.1.0.apk"}]}
+        with self.assertRaises(ValueError):
+            prune_cos(client, "bucket", "1.0.0")
+        client.delete_object.assert_not_called()
+
+    def test_r2_missing_pagination_metadata_deletes_nothing(self):
+        request = Mock(return_value={"result": [{"key": "lees-clash-0.1.0.apk"}]})
+        with self.assertRaises(ValueError):
+            prune_r2(request, "/objects", "1.0.0")
         self.assertEqual(1, request.call_count)

@@ -82,6 +82,8 @@ jobs:
       - name: Verify identity, independent signing and stage artifacts
         if: steps.existing.outputs.published != 'true'
         run: |
+          test -s app/build/outputs/mapping/alphaRelease/mapping.txt
+          grep -q '^# compiler: R8' app/build/outputs/mapping/alphaRelease/mapping.txt
           python3 -B tools/release/audit_apk.py app/build/outputs/apk/alpha/release/*.apk
           python3 -B tools/release/stage.py "$TAG"
       - name: Publish immutable assets in this private repository

@@ -22,8 +22,11 @@ def prune_cos(client, bucket, version):
         if marker:
             params["Marker"] = marker
         page = client.list_objects(**params)
+        truncated = page.get("IsTruncated")
+        if type(truncated) is not bool and truncated not in ("true", "false"):
+            raise ValueError("Missing COS pagination status; nothing deleted")
         keys.extend(item["Key"] for item in page.get("Contents", []) or [])
-        if page.get("IsTruncated") not in (True, "true"):
+        if truncated in (False, "false"):
             break
         marker = page.get("NextMarker")
         if not marker or marker in seen:
@@ -55,7 +58,9 @@ def prune_r2(request, bucket_path, version):
         page = request("GET", bucket_path, params)
         keys.extend(item["key"] for item in page.get("result", []) or [])
         info = page.get("result_info") or {}
-        if not info.get("is_truncated"):
+        if type(info.get("is_truncated")) is not bool:
+            raise ValueError("Missing R2 pagination status; nothing deleted")
+        if not info["is_truncated"]:
             break
         cursor = info.get("cursor")
         if not cursor or cursor in seen:
