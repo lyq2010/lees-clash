@@ -148,8 +148,8 @@ fun ClientApp(
                             val argument = Uri.decode(visibleRoute.substringAfter('/', ""))
                             holder.SaveableStateProvider(visibleRoute) {
                                 when (visibleKind) {
-                                    "home" -> HomeScreen(state, navigate, toggle, vm::setMode)
-                                    "tools" -> ToolsScreen(navigate)
+                                    "home" -> HomeScreen(state, navigate, toggle, vm::setMode) { state.active?.let(vm::updateProfile) }
+                                    "tools" -> ToolsScreen(state, vm, navigate, confirm)
                                     "more" -> MoreScreen(navigate)
                                     "profiles" -> ProfilesScreen(state, vm, navigate, back)
                                     "import" ->
@@ -213,6 +213,9 @@ fun ClientApp(
                                         ProfileExtensionScreen(argument, state, vm, back, confirm)
                                     "on-demand" -> OnDemandScreen(state, vm, back)
                                     "network-check" -> NetworkProbeScreen(state, vm, back)
+                                    "subscription" -> SubscriptionScreen(state, vm, navigate, back)
+                                    "lan" -> LanSharingScreen(state, vm, back)
+                                    "memory" -> MemoryDetailsScreen(state, vm, back)
                                     "update" -> UpdateScreen(back)
                                     "backup" ->
                                         BackupScreen(state, back, exportBackup, restoreBackup)

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/metacubex/mihomo/component/resolver"
+	"github.com/metacubex/mihomo/listener"
 	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 	"github.com/miekg/dns"
@@ -119,6 +120,18 @@ func Query(operation, payload string) string {
 	}
 	var result any
 	switch operation {
+	case "lan":
+		ports := listener.GetPorts()
+		result = map[string]any{"allowLan": listener.AllowLan(), "bindAddress": listener.BindAddress(), "httpPort": ports.Port, "socksPort": ports.SocksPort, "mixedPort": ports.MixedPort}
+	case "clearDnsCache":
+		// Wait for completion; preserve Fake IP mappings used by existing connections.
+		if resolver.DefaultResolver != nil {
+			resolver.DefaultResolver.ClearCache()
+		}
+		if resolver.SystemResolver != nil {
+			resolver.SystemResolver.ClearCache()
+		}
+		result = map[string]bool{"success": true}
 	case "groupSummary":
 		value := LT.QueryProxyGroupSummary(request.ID)
 		if value == nil {

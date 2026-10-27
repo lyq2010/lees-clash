@@ -19,6 +19,8 @@ class MemoryRegressionTest {
             assertTrue(repo.coreVersion().contains("3f27ef3"))
             assertTrue(repo.generateKey(false).publicKey.isNotEmpty())
             assertTrue(repo.generateKey(true).publicKey.isNotEmpty())
+            assertTrue(repo.diagnostic("runtime").contains("servicePssKiB"))
+            assertTrue(repo.diagnostic("lan").contains("mixedPort"))
             assertFalse(
                 "UI process must not map a second Go kernel",
                 File("/proc/self/maps").readText().contains("libclash.so"),

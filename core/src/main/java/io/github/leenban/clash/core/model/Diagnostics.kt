@@ -35,10 +35,20 @@ data class RuleInfo(val index: Int, val type: String, val payload: String, val p
 @Serializable
 data class TrafficStats(
     val networkBypassed: Boolean = false,
+    val uptimeMs: Long = 0,
     val uploadRate: Long = 0,
     val downloadRate: Long = 0,
     val uploadTotal: Long = 0,
     val downloadTotal: Long = 0,
+)
+
+@Serializable
+data class LanStatus(
+    val allowLan: Boolean = false,
+    val bindAddress: String = "",
+    val httpPort: Int = 0,
+    val socksPort: Int = 0,
+    val mixedPort: Int = 0,
 )
 
 @Serializable

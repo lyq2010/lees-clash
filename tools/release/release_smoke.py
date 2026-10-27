@@ -12,6 +12,27 @@ import xml.etree.ElementTree as ET
 def verify(adb, serial, package):
     def run(*arguments):
         return subprocess.check_output([adb, "-s", serial, *arguments], timeout=30)
+
+    def ui():
+        run("shell", "uiautomator", "dump", "/sdcard/lees-clash-release-smoke.xml")
+        return ET.fromstring(run("shell", "cat", "/sdcard/lees-clash-release-smoke.xml"))
+
+    def tap(text=None, description=None):
+        for node in ui().iter("node"):
+            if ((text is not None and node.get("text") == text)
+                    or (description is not None and node.get("content-desc") == description)):
+                bounds = list(map(int, re.findall(r"\d+", node.get("bounds", ""))))
+                if len(bounds) == 4:
+                    run("shell", "input", "tap", str((bounds[0] + bounds[2]) // 2), str((bounds[1] + bounds[3]) // 2))
+                    return
+        raise ValueError("Release UI entry missing: " + str(text or description))
+
+    def require_text(text):
+        for _ in range(5):
+            if any(node.get("text") == text for node in ui().iter("node")):
+                return
+            time.sleep(1)
+        raise ValueError("Release UI result missing: " + text)
     component = f"{package}/io.github.leenban.clash."
     run("shell", "appops", "set", package, "ACTIVATE_VPN", "allow")
     run("shell", "pm", "grant", package, "android.permission.POST_NOTIFICATIONS")
@@ -54,7 +75,24 @@ def verify(adb, serial, package):
             time.sleep(1)
         if not success:
             raise ValueError("Signed Release / JNI / VPN proxy forwarding failed")
-        print("Signed R8 APK: configuration import, VPN and real local forwarding passed")
+        # Start a fresh UI task without stopping the running service.
+        run("shell", "am", "start", "-W", "-f", "0x10008000", "-n", component + "MainActivity")
+        tap(text="网络")
+        tap(text="局域网信息与共享")
+        require_text("HTTP 代理端口")
+        require_text("17890")
+        tap(description="返回")
+        tap(text="工具")
+        tap(text="内存详情")
+        require_text("后台进程 PSS")
+        require_text("Go 协程数")
+        if any(node.get("text") == "正在读取" for node in ui().iter("node")):
+            raise ValueError("R8 memory diagnostics did not complete")
+        tap(description="返回")
+        tap(text="清理 DNS 缓存")
+        tap(text="确认")
+        require_text("DNS 缓存已清理")
+        print("Signed R8 APK: import / VPN / local forwarding / LAN ports / memory / DNS cache passed")
     finally:
         run("shell", "am", "start", "-W", "-n", component + "ExternalControlActivity", "-a", package + ".action.STOP_CLASH")
         run("forward", "--remove", "tcp:18891")

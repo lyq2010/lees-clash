@@ -16,7 +16,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Run on phone/tablet, both orientations and font_scale=2; see BUILD-MAC.md. */
+/** Run on phone/tablet, both orientations and font_scale=2; see docs/RELEASE.md. */
 @RunWith(AndroidJUnit4::class)
 class LayoutVerificationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -43,6 +43,7 @@ class LayoutVerificationTest {
             "on-demand" to "按需网络", "network-check" to "IP 与网络检查",
             "update" to "应用更新", "backup" to "本地备份与恢复", "keys" to "加密配置密钥",
             "backup-preview" to "恢复备份",
+            "subscription" to "当前配置详情", "lan" to "局域网信息与共享", "memory" to "内存详情",
         )
         try {
             runBlocking { repository.select(fixture) }
@@ -68,6 +69,8 @@ class LayoutVerificationTest {
                         "stats" -> compose.onAllNodesWithText("下载").onLast().performScrollTo().assertIsDisplayed()
                         "backup" -> compose.onNodeWithText("选择备份文件").performScrollTo().assertIsDisplayed()
                         "backup-preview" -> compose.onNodeWithText("Geo 文件").performScrollTo().assertIsDisplayed()
+                        "lan" -> compose.onNodeWithContentDescription("混合代理端口").performScrollTo().assertIsDisplayed()
+                        "memory" -> compose.onNodeWithText("Go 协程数").performScrollTo().assertIsDisplayed()
                     }
                     compose.mainClock.advanceTimeBy(500)
                     compose.waitForIdle()

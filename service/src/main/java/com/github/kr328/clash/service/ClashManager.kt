@@ -52,9 +52,12 @@ class ClashManager(private val context: Context) :
                     "dns",
                     "runtime",
                     "networkCheck",
+                    "lan",
+                    "clearDnsCache",
                 )
         )
         require(payload.length <= 8192)
+        if (operation == "clearDnsCache") check(StatusProvider.serviceRunning) { "启动服务后可以清理 DNS 缓存" }
         if (operation == "runtime" && payload.contains("javaStacks")) {
             check(io.github.leenban.clash.service.BuildConfig.DEBUG)
             return buildJsonObject {
@@ -77,8 +80,18 @@ class ClashManager(private val context: Context) :
         )
         if (operation == "traffic") return JsonObject(
             DiagnosticJson.format.parseToJsonElement(result).jsonObject +
-                ("networkBypassed" to JsonPrimitive(StatusProvider.networkBypassed))
+                mapOf(
+                    "networkBypassed" to JsonPrimitive(StatusProvider.networkBypassed),
+                    "uptimeMs" to JsonPrimitive(if (StatusProvider.serviceRunning)
+                        (android.os.SystemClock.elapsedRealtime() - StatusProvider.startedAtElapsed).coerceAtLeast(0L) else 0L),
+                )
         ).toString()
+        if (operation == "runtime") {
+            val memory = android.os.Debug.MemoryInfo()
+            android.os.Debug.getMemoryInfo(memory)
+            return JsonObject(DiagnosticJson.format.parseToJsonElement(result).jsonObject +
+                ("servicePssKiB" to JsonPrimitive(memory.totalPss))).toString()
+        }
         return result
     }
 

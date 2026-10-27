@@ -38,6 +38,9 @@ rules:
   - MATCH,DIRECT
 """
 
+dns_cache_queries = {}
+dns_cache_lock = threading.Lock()
+
 def read_exact(sock, count):
     data = b""
     while len(data) < count:
@@ -154,6 +157,11 @@ class DNS(socketserver.BaseRequestHandler):
             value = (socket.inet_aton("127.0.0.1") if kind == 1 else
                      socket.inet_pton(socket.AF_INET6, "::1") if kind == 28 else
                      b"\x0dlocal-fixture" if kind == 16 else b"")
+            if kind == 1 and domain.startswith(b"cache-verification-"):
+                with dns_cache_lock:
+                    count = dns_cache_queries.get(domain, 0) + 1
+                    dns_cache_queries[domain] = count
+                value = socket.inet_aton(f"127.0.0.{count % 250 + 1}")
             answer = b"\xc0\x0c" + struct.pack("!HHIH", kind, 1, 60, len(value)) + value if value and not code else b""
             response = packet[:2] + struct.pack("!HHHHH", 0x8180 | code, 1, int(bool(answer)), 0, 0) + question + answer
             self.request.sendall(struct.pack("!H", len(response)) + response)

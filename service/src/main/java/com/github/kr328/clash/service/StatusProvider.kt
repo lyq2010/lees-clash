@@ -72,12 +72,16 @@ class StatusProvider : ContentProvider() {
 
         @Volatile var stopRequested: Boolean = false
         @Volatile var networkBypassed: Boolean = false
+        @Volatile var startedAtElapsed: Long = 0L
+            private set
 
         private const val CLASH_SERVICE_RUNNING_FILE = "service_running.lock"
 
         @Volatile
         var serviceRunning: Boolean = false
             set(value) {
+                if (value != field)
+                    startedAtElapsed = if (value) android.os.SystemClock.elapsedRealtime() else 0L
                 field = value
 
                 shouldStartClashOnBoot = value

@@ -63,3 +63,19 @@
 - 成功 / 复制 / 切换等已完成操作使用应用内底部短 Toast，约4秒自动消失，不遮挡底栏；可访问性使用 polite live region。
 - 超过300ms的操作显示顶部进度浮层，快速操作不闪烁；错误顶部 Alert 不自动消失，可关闭，长错误通过详情 Modal 完整读取。提示均不改变正文布局。
 - 删除 / 清空 / 断开连接 / 放弃修改用明确二次确认，表单错误继续就地显示；编辑仍使用现有完整表单。移动端不为套用组件名增加 Tooltip、长按提示或重复 Drawer。
+
+## 首页入口调整（2026-10-27）
+
+用户已授权全部落实；参考FlClash安卓版v0.9.2 / `7fd417fb9a9a277c6a9339a8ac87f907df7c25f7`的信息组织，保留左上配置选择、右上启动、通用 / 网络 / 覆写与彩色卡片布局，不复制Flutter实现或视觉资产。
+
+| 位置 | 当前行为 |
+|---|---|
+| 通用订阅概览 | 显示当前订阅剩余 / 总量、到期、上次更新；直接进入详情或更新当前订阅。额度缺失、过期、超额与本地配置分别显示，未知值不伪造 |
+| 网络页签 | 将重复的DNS查询 / 实时连接 / 实时流量替换为IP与网络检查、按需网络、局域网信息与共享；原诊断能力仍在工具页，DNS卡片保留查询 |
+| 局域网信息与共享 | 显示实际Wi-Fi / 以太网IPv4 / IPv6与内核实际监听端口，运行且允许局域网时才显示可复制的代理地址；支持跟随配置 / 允许共享 / 仅本机及混合端口。停止后保存，下次启动生效，其他覆写不变，旋转保留草稿 |
+| 运行状态 | 保留上下行速率与查看连接，增加本次累计上传 / 下载和服务运行时长；服务单调时钟计时，界面重建不重置，停止清零 |
+| 工具页 | 新增手动采样的进程PSS / Go内存详情，不在UI加载第二内核；新增二次确认后同步清理DNS缓存，保留既有连接和Fake IP映射，停机不可执行 |
+
+网络检查仍需手动触发，不因进入首页请求公网；局域网信息刷新和内存采样不增加后台轮询。长配置名单行省略，首页操作按钮在窄屏 / 大字体下自动换行，正常字号保持并排。
+
+参考：[官方手机预览](https://github.com/chen08209/FlClash/blob/7fd417fb9a9a277c6a9339a8ac87f907df7c25f7/snapshots/preview.png)、[订阅卡片](https://github.com/chen08209/FlClash/blob/7fd417fb9a9a277c6a9339a8ac87f907df7c25f7/lib/views/dashboard/widgets/profiles.dart)、[当前出口](https://github.com/chen08209/FlClash/blob/7fd417fb9a9a277c6a9339a8ac87f907df7c25f7/lib/views/dashboard/widgets/current_outbound.dart)、[局域网信息](https://github.com/chen08209/FlClash/blob/7fd417fb9a9a277c6a9339a8ac87f907df7c25f7/lib/views/dashboard/widgets/intranet_ip.dart)。

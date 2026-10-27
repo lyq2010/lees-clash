@@ -4,8 +4,30 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/metacubex/mihomo/component/resolver"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 )
+
+type cacheResolver struct {
+	resolver.Resolver
+	cleared bool
+}
+
+func (r *cacheResolver) ClearCache() { r.cleared = true }
+
+func TestDnsCacheClearCompletesForCoreAndSystem(t *testing.T) {
+	previous, system := resolver.DefaultResolver, resolver.SystemResolver
+	defer func() { resolver.DefaultResolver, resolver.SystemResolver = previous, system }()
+	coreCache, systemCache := &cacheResolver{}, &cacheResolver{}
+	resolver.DefaultResolver, resolver.SystemResolver = coreCache, systemCache
+	var response map[string]bool
+	if err := json.Unmarshal([]byte(Query("clearDnsCache", "{}")), &response); err != nil || !response["success"] {
+		t.Fatalf("cache clear failed: %v", err)
+	}
+	if !coreCache.cleared || !systemCache.cleared {
+		t.Fatal("reported success before both resolvers completed")
+	}
+}
 
 func TestPaginationBoundaries(t *testing.T) {
 	items := []int{1, 2, 3}

@@ -131,7 +131,8 @@ class ClientViewModel(application: Application) :
             try {
                 repository.reload(profile)
                 val profiles = repository.profiles()
-                mutable.update { it.copy(profiles = profiles) }
+                val active = repository.active()
+                mutable.update { it.copy(profiles = profiles, active = active) }
                 refreshPage()
             } finally {
                 mutable.update { it.copy(updatingProfiles = it.updatingProfiles - profile.uuid) }
@@ -317,6 +318,10 @@ class ClientViewModel(application: Application) :
         val screen = requestedRoute.substringBefore('/')
         val argument = android.net.Uri.decode(requestedRoute.substringAfter('/', ""))
         when (screen) {
+            "home" -> {
+                val enabled = repository.service.onDemandEnabled
+                if (route == requestedRoute) mutable.update { it.copy(onDemandEnabled = enabled) }
+            }
             "extension" -> {
                 val value = repository.extension(argument)
                 if (route == requestedRoute) mutable.update { it.copy(extensionJson = value) }

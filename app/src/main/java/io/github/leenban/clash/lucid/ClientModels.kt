@@ -33,6 +33,7 @@ data class ClientState(
     val backupUri: String? = null,
     val backupPreview: io.github.leenban.clash.service.backup.BackupPreview? = null,
     val settingsRevision: Int = 0,
+    val onDemandEnabled: Boolean = false,
     val active: Profile? = null,
     val profiles: List<Profile> = emptyList(),
     val mode: TunnelState.Mode = TunnelState.Mode.Rule,

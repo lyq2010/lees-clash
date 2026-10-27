@@ -20,12 +20,14 @@ import androidx.compose.ui.unit.sp
 import io.github.leenban.clash.core.model.TunnelState
 import io.github.leenban.clash.design.lucid.*
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(
     state: ClientState,
     navigate: (String) -> Unit,
     toggle: () -> Unit,
     setMode: (TunnelState.Mode) -> Unit,
+    updateProfile: () -> Unit,
 ) {
     val c = LocalLucidColors.current
     var section by rememberSaveable { mutableIntStateOf(0) }
@@ -147,13 +149,12 @@ fun HomeScreen(
                                         }
                                     }
                                 }
-                            Row(
+                            FlowRow(
                                 Modifier.fillMaxWidth()
                                     .padding(horizontal = 14.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                             ) {
                                 CardButton("代理策略") { navigate("groups") }
-                                Spacer(Modifier.width(8.dp))
                                 CardButton("代理规则") { navigate("rules") }
                             }
                         }
@@ -169,33 +170,32 @@ fun HomeScreen(
                                 fontSize = 15.sp,
                                 lineHeight = 20.sp,
                             )
-                            Row(
+                            FlowRow(
                                 Modifier.fillMaxWidth().padding(15.dp),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                             ) {
                                 CardButton("DNS 设置") { navigate("dns-settings") }
-                                Spacer(Modifier.width(8.dp))
                                 CardButton("域名查询") { navigate("dns") }
                             }
                         }
                         LucidCard(
-                            "配置与资源",
+                            if (state.active?.type == io.github.leenban.clash.service.model.Profile.Type.Url) "订阅概览" else "当前配置",
                             LucidSymbol.Document,
                             listOf(Color(0xFFED7954), Color(0xFFF8A92C)),
                         ) {
-                            Text(
-                                state.active?.name ?: "导入配置后即可使用代理与规则",
-                                Modifier.padding(horizontal = 15.dp),
-                                color = Color.White,
-                                fontSize = 15.sp,
-                            )
-                            Row(
+                            HomeProfileSummary(state.active)
+                            FlowRow(
                                 Modifier.fillMaxWidth().padding(15.dp),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                             ) {
-                                CardButton("资源管理") { navigate("providers") }
-                                Spacer(Modifier.width(8.dp))
-                                CardButton("配置文件") { navigate("profiles") }
+                                CardButton(if (state.active == null) "导入配置" else "配置详情") {
+                                    navigate(if (state.active == null) "import" else "subscription")
+                                }
+                                if (state.active?.type == io.github.leenban.clash.service.model.Profile.Type.Url) {
+                                    CardButton(if (state.active.uuid in state.updatingProfiles) "更新中" else "更新订阅",
+                                        enabled = !state.busy && state.active.uuid !in state.updatingProfiles,
+                                        onClick = updateProfile)
+                                }
                             }
                         }
                         LucidCard(
@@ -216,9 +216,18 @@ fun HomeScreen(
                                 color = Color.White,
                                 fontSize = 15.sp,
                             )
-                            Row(
+                            Text(
+                                "本次累计 ↑ ${formatBytes(state.traffic.uploadTotal)}  ↓ ${formatBytes(state.traffic.downloadTotal)}",
+                                Modifier.padding(horizontal = 15.dp), color = Color.White, fontSize = 14.sp,
+                            )
+                            Text(
+                                "服务运行 ${formatRunTime(if (state.running) state.traffic.uptimeMs else 0L)}",
+                                Modifier.padding(horizontal = 15.dp).padding(top = 8.dp, bottom = 12.dp),
+                                color = Color.White.copy(alpha = .8f), fontSize = 13.sp,
+                            )
+                            FlowRow(
                                 Modifier.fillMaxWidth().padding(end = 15.dp, bottom = 15.dp),
-                                horizontalArrangement = Arrangement.End,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                             ) {
                                 CardButton("查看连接") { navigate("connections") }
                             }
@@ -238,24 +247,14 @@ fun HomeScreen(
                                 onClick = { navigate("apps") },
                             )
                         }
-                        LucidSection("诊断") {
-                            LucidRow(
-                                "DNS 查询",
-                                symbol = LucidSymbol.Dns,
-                                onClick = { navigate("dns") },
-                            )
-                            LucidRow(
-                                "实时连接",
-                                symbol = LucidSymbol.List,
-                                tint = Color(0xFFFF453A),
-                                onClick = { navigate("connections") },
-                            )
-                            LucidRow(
-                                "实时流量",
-                                symbol = LucidSymbol.Chart,
-                                tint = Color(0xFFFF9F0A),
-                                onClick = { navigate("stats") },
-                            )
+                        LucidSection("网络检查与共享") {
+                            LucidRow("IP 与网络检查", symbol = LucidSymbol.Network,
+                                onClick = { navigate("network-check") })
+                            LucidRow("按需网络", symbol = LucidSymbol.Shield,
+                                value = if (!state.onDemandEnabled) "未启用" else if (state.traffic.networkBypassed) "已暂停接管" else "已启用",
+                                onClick = { navigate("on-demand") })
+                            LucidRow("局域网信息与共享", symbol = LucidSymbol.Network,
+                                tint = Color(0xFFFF9F0A), onClick = { navigate("lan") })
                         }
                     }
                     2 -> {
@@ -293,9 +292,9 @@ fun HomeScreen(
 }
 
 @Composable
-private fun CardButton(text: String, onClick: () -> Unit) {
+private fun CardButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
-        Modifier.heightIn(min = 48.dp).lucidClickable(scale = true, onClick = onClick),
+        Modifier.heightIn(min = 48.dp).lucidClickable(enabled = enabled, scale = true, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -310,7 +309,7 @@ private fun CardButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-fun ToolsScreen(navigate: (String) -> Unit) {
+fun ToolsScreen(state: ClientState, vm: ClientViewModel, navigate: (String) -> Unit, confirm: (String, () -> Unit) -> Unit) {
     val c = LocalLucidColors.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Text(
@@ -335,6 +334,15 @@ fun ToolsScreen(navigate: (String) -> Unit) {
                 tint = Color(0xFFFF9500),
                 onClick = { navigate("stats") },
             )
+            LucidRow("内存详情", symbol = LucidSymbol.Chart, onClick = { navigate("memory") })
+            LucidRow("清理 DNS 缓存", value = if (state.running) null else "需启动服务",
+                symbol = LucidSymbol.Refresh, onClick = if (!state.running || state.busy) null else ({
+                    confirm("清理 DNS 缓存？后续请求会重新解析，现有连接和 Fake IP 映射保留。") {
+                        vm.task(progress = "正在清理 DNS 缓存", success = "DNS 缓存已清理") {
+                            vm.repository.diagnostic("clearDnsCache")
+                        }
+                    }
+                }))
             LucidRow(
                 "运行日志",
                 symbol = LucidSymbol.Document,
