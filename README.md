@@ -1,18 +1,20 @@
 <div align="center">
 
-<img src="docs/brand/icon.svg" width="104" height="104" alt="Lee’s Clash 应用图标" />
+<img src="docs/brand/icon.svg" width="104" height="104" alt="Lee's Clash 应用图标" />
 
-# Lee’s Clash
+# Lee's Clash
 
 基于 CMFA / mihomo 的 Android 代理客户端，采用 Kotlin / Compose 与 Lucid 风格界面。
 
-[下载发行版](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0) · [更新日志](CHANGELOG.md) · [开发维护](docs/HANDOFF.md) · [开发矩阵](docs/DEVELOPMENT-MATRIX.md)
+[下载发行版](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.1) · [更新日志](CHANGELOG.md) · [开发维护](docs/HANDOFF.md) · [开发矩阵](docs/DEVELOPMENT-MATRIX.md)
 
 </div>
 
 ## 当前版本与能力
 
-源码版本 **1.0.0**。支持配置链接、文件和二维码导入，配置编辑与更新，策略组选择和测速，以及停止代理后的策略与规则浏览。首页可查看订阅用量与到期并直接更新，网络页提供手动 IP 检查、按需网络与局域网共享。
+轻量 Smart 支持 YAML `type: smart`，应用内仅 URLTest 组提供独立覆盖，工具页可批量启停当前配置全部 URLTest 组；默认遵循配置，订阅更新保留有效覆盖，不改订阅原文。缓存和探测采用全局上限，无 Smart 空闲定时任务，详见[轻量 Smart](docs/SMART.md)。
+
+源码版本 **1.0.1**。支持配置链接、文件和二维码导入，配置编辑与更新，策略组选择和测速，以及停止代理后的策略与规则浏览。首页可查看订阅用量与到期并直接更新，网络页提供手动 IP 检查、按需网络与局域网共享。
 
 提供连接、规则、DNS、流量和日志诊断，内存详情与手动清理 DNS 缓存，完整覆写编辑、五类 Geo 数据管理、两类 age 加密配置、本地备份恢复、自定义规则与受限配置脚本。按需网络默认关闭；WebDAV 不在当前范围。
 
@@ -20,13 +22,19 @@
 
 ## 安装与更新
 
-最低 Android 8.0 / API 26。只提供一份约 **120 MiB** 的通用 APK，内含 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 四架构，无需选择安装包；全部功能与 Geo 数据保留。
+最低 Android 8.0 / API 26。只提供一份通用 APK，内含 `arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64` 四架构，无需选择安装包；全部功能与 Geo 数据保留。
 
-[通用包下载](https://plt-releases.leenbsl.workers.dev/lees-clash-1.0.0.apk) · [GitHub 发行版](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)
+[通用包下载](https://plt-releases.leenbsl.workers.dev/lees-clash-1.0.1.apk) · [GitHub 发行版](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.1)
 
 安装时按系统提示允许安装来源，首次启用代理需授予 VPN 权限。应用使用独立签名，升级须使用同一签名的安装包。应用内手动检查更新，下载后校验大小、SHA-256、包名、版本和签名。
 
 Release 原生库在安装时只提取设备所需架构，以减少 APK 下载体积；精简对照及实际占用见[发布文档](docs/RELEASE.md#安装包体积)。本地备份包含订阅链接和密钥，保存和传递时请按敏感文件处理。
+
+## 策略与外部资源
+
+外部资源可单项 / 全部手动更新：未开启代理时直连，开启后按当前路由，不绑定固定代理；保留 YAML 的更新间隔。更多页新增通知入口。首页保留原卡片样式并收紧留白，策略组与节点可分别选择列表、卡片或网格。
+
+在 `proxy-groups` 的分组条目中设置 `icon: "https://example.com/group.png"` 可显示远程 PNG / JPEG / WebP / SVG；无配置或加载失败时使用默认图标。节点页的“检测落地 IP 与运营商”逐个经指定节点检测出口信息，不切换当前策略；需要先启动服务，结果仅代表本次请求。连接列表和详情显示应用名称；`find-process-mode: off` 会关闭额外的应用识别。
 
 ## 本地开发与验证
 

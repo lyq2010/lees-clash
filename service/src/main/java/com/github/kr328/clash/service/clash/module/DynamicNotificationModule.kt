@@ -42,10 +42,19 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
         )
 
     private val notificationManager = NotificationManagerCompat.from(service)
+    private var lastNow = Long.MIN_VALUE
+    private var lastTotal = Long.MIN_VALUE
 
     private fun update() {
+        if (!notificationManager.areNotificationsEnabled()) {
+            lastNow = Long.MIN_VALUE
+            return
+        }
         val now = Clash.queryTrafficNow()
         val total = Clash.queryTrafficTotal()
+        if (now == lastNow && total == lastTotal) return
+        lastNow = now
+        lastTotal = total
 
         val uploading = now.trafficUpload()
         val downloading = now.trafficDownload()
@@ -96,6 +105,7 @@ class DynamicNotificationModule(service: Service) : Module<Unit>(service) {
                 }
                 profileLoaded.onReceive {
                     builder.setContentTitle(StatusProvider.currentProfile ?: "Not selected")
+                    lastNow = Long.MIN_VALUE
                 }
                 if (shouldUpdate) {
                     ticker.onReceive {

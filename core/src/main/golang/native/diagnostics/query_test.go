@@ -2,11 +2,50 @@ package diagnostics
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
+	"github.com/metacubex/mihomo/component/process"
 	"github.com/metacubex/mihomo/component/resolver"
+	C "github.com/metacubex/mihomo/constant"
+	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
 )
+
+func TestConnectionApplicationLookupForStrictModePreservesRoutingAndOff(t *testing.T) {
+	connectionOwners.Clear()
+	defer connectionOwners.Clear()
+	oldResolver, oldMode := PackageResolver, tunnel.FindProcessMode()
+	defer func() { PackageResolver = oldResolver; tunnel.SetFindProcessMode(oldMode) }()
+	calls := 0
+	PackageResolver = func(m *C.Metadata) (string, error) {
+		calls++
+		m.Uid = 10123
+		return "example.browser", nil
+	}
+	tunnel.SetFindProcessMode(process.FindProcessStrict)
+	m := &C.Metadata{}
+	info := &statistic.TrackerInfo{Metadata: m}
+	result := connection(info)
+	if result.Process != "example.browser" || result.UID != 10123 || m.Uid != 0 || m.Process != "" {
+		t.Fatalf("missing identity or modified routing metadata: %+v %+v", result, m)
+	}
+	connection(info)
+	if calls != 1 {
+		t.Fatal("repeated Binder lookup for unchanged connection")
+	}
+	tunnel.SetFindProcessMode(process.FindProcessOff)
+	result = connection(info)
+	if calls != 1 || result.Process != "" || result.UID != -1 {
+		t.Fatal("ignored off mode or invented UID")
+	}
+	tunnel.SetFindProcessMode(process.FindProcessStrict)
+	connectionOwners.Clear()
+	PackageResolver = func(m *C.Metadata) (string, error) { m.Uid = 10124; return "", fmt.Errorf("package absent") }
+	if got := connection(info); got.UID != 10124 || got.Process != "" {
+		t.Fatal("lost valid UID when package absent")
+	}
+}
 
 type cacheResolver struct {
 	resolver.Resolver

@@ -30,7 +30,7 @@ class ExtendedUiVerificationTest {
                     "about" to "关于",
                     "apps" to "分应用代理",
                     "keys" to "加密配置密钥",
-                    "providers" to "资源提供器",
+                    "providers" to "外部资源",
                     "files" to "配置与资源文件",
                 )) {
                 open(route, title)

@@ -23,7 +23,7 @@ data class LucidColors(
 
 val LocalLucidColors = staticCompositionLocalOf {
     LucidColors(
-        Color(0xFFF2F2F7),
+        Color(0xFFE9EDF2),
         Color.White,
         Color(0xFF17171A),
         Color(0xFF86868D),
@@ -37,12 +37,12 @@ fun LucidTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () ->
     val colors =
         if (dark)
             LucidColors(
-                Color(0xFF000000),
-                Color(0xFF1C1C1E),
+                Color(0xFF101216),
+                Color(0xFF1B1E24),
                 Color(0xFFF3F3F6),
                 Color(0xFF9D9DA4),
-                Color(0xFF343438),
-                Color(0xFF2C2C2E),
+                Color(0xFF30343C),
+                Color(0xFF252932),
                 Color(0xFF0A84FF),
             )
         else LocalLucidColors.current

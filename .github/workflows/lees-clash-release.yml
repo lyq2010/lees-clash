@@ -97,7 +97,11 @@ jobs:
       - name: Native unit tests
         if: steps.existing.outputs.published != 'true'
         working-directory: core/src/main/golang
-        run: go test -v ./native/extension ./native/script ./native/diagnostics ./native/geoasset ./native/preview
+        run: go test -v -tags=foss,with_gvisor,cmfa ./native/extension ./native/script ./native/diagnostics ./native/geoasset ./native/preview ./native/smart ./native/tunnel
+      - name: Smart routing, failover and memory tests
+        if: steps.existing.outputs.published != 'true'
+        working-directory: core/src/foss/golang/clash
+        run: go test -v -tags=foss,with_gvisor,cmfa -run Smart ./adapter/outboundgroup
       - name: Restore independent Clash signing
         if: steps.existing.outputs.published != 'true'
         env:
@@ -126,7 +130,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 -c 'import json, os; from pathlib import Path; Path(os.environ["RUNNER_TEMP"], "release-notes.md").write_text(json.loads(Path("artifacts/release/latest-lees-clash.json").read_text())["notes"], encoding="utf-8")'
-          gh release create "$TAG" artifacts/release/* --repo "$RELEASE_REPOSITORY" --target "$(git rev-parse HEAD)" --draft --latest=false --title "Lee’s Clash ${TAG#v}" --notes-file "$RUNNER_TEMP/release-notes.md"
+          gh release create "$TAG" artifacts/release/* --repo "$RELEASE_REPOSITORY" --target "$(git rev-parse HEAD)" --draft --latest=false --title "Lee's Clash ${TAG#v}" --notes-file "$RUNNER_TEMP/release-notes.md"
           gh release edit "$TAG" --repo "$RELEASE_REPOSITORY" --draft=false --latest=false
       - name: Save reusable cache even after test failure
         if: always() && steps.build-cache.outputs.cache-primary-key != '' && steps.build-cache.outputs.cache-hit != 'true'

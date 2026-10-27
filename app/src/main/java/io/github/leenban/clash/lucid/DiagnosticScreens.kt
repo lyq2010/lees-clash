@@ -44,7 +44,7 @@ fun ConnectionsScreen(
                     LucidRow(
                         c.host.ifBlank { c.destination },
                         subtitle =
-                            "${c.network.uppercase()} · ${c.chains.firstOrNull()?:"未知策略"}\n↑ ${formatBytes(c.upload)}  ↓ ${formatBytes(c.download)}",
+                            "${c.applicationTitle()} · ${c.network.uppercase()} · ${c.chains.firstOrNull()?:"未知策略"}\n↑ ${formatBytes(c.upload)}  ↓ ${formatBytes(c.download)}",
                         onClick = { navigate("connection/${Uri.encode(c.id)}") },
                     )
                 }
@@ -62,7 +62,6 @@ fun ConnectionsScreen(
                 item {
                     LucidEmpty(
                         if (state.running) "暂无活动连接" else "服务未启动",
-                        "这里展示内核当前可观测的连接，不包含 HTTP 请求内容。",
                     )
                 }
         }
@@ -86,8 +85,9 @@ fun ConnectionScreen(
                         LucidRow("状态", value = if (state.connectionEnded) "已结束" else "活动中")
                         LucidRow("目标", subtitle = c.host.ifBlank { c.destination })
                         LucidRow("协议", value = c.network.uppercase())
-                        LucidRow("应用", subtitle = c.process.ifBlank { "未知" })
-                        LucidRow("UID", value = if (c.uid == 0L) "未知" else c.uid.toString())
+                        LucidRow("应用", subtitle = c.applicationTitle())
+                        if (c.process.isNotBlank()) LucidRow("应用标识", subtitle = c.process)
+                        LucidRow("UID", value = if (c.uid < 0L) "未知" else c.uid.toString())
                         LucidRow("开始时间", subtitle = c.start)
                     }
                 }
@@ -182,7 +182,7 @@ fun DnsScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
         }
         LazyColumn {
             item {
-                LucidSection("查询条件", footer = "使用当前内核配置的 DNS 解析器；查询超时为 8 秒。") {
+                LucidSection("查询条件") {
                     LucidField("域名", domain, { domain = it }, "example.com")
                     LucidRow(
                         "记录类型",

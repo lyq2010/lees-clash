@@ -139,7 +139,7 @@ class HomeEntryVerificationTest {
                 compose.waitUntil(10000) { model.state.value.active?.uuid == profile.uuid }
                 if (kind == "no-info") {
                     compose.onNodeWithText("订阅未提供总额度").performScrollTo().assertIsDisplayed()
-                    compose.onNodeWithText("订阅未提供到期时间").performScrollTo().assertIsDisplayed()
+                    compose.onNodeWithText("到期时间未知").performScrollTo().assertIsDisplayed()
                 } else {
                     compose.onNodeWithText("剩余 0 B / 1 B").performScrollTo().assertIsDisplayed()
                     compose.onNode(hasText("已到期", substring = true)).performScrollTo().assertIsDisplayed()

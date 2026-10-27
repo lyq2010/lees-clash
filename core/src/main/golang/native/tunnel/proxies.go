@@ -34,6 +34,7 @@ type ProxyGroup struct {
 	Type    string   `json:"type"`
 	Now     string   `json:"now"`
 	Proxies []*Proxy `json:"proxies"`
+	Icon    string   `json:"icon"`
 }
 
 type sortableProxyList struct {
@@ -124,6 +125,7 @@ func QueryProxyGroup(name string, sortMode SortMode, uiSubtitlePattern *regexp2.
 		Type:    g.Type().String(),
 		Now:     g.Now(),
 		Proxies: proxies,
+		Icon:    g.Icon(),
 	}
 }
 
@@ -136,7 +138,7 @@ func QueryProxyGroupSummary(name string) *ProxyGroup {
 	if !ok {
 		return nil
 	}
-	return &ProxyGroup{Type: g.Type().String(), Now: g.Now(), Proxies: []*Proxy{}}
+	return &ProxyGroup{Type: g.Type().String(), Now: g.Now(), Proxies: []*Proxy{}, Icon: g.Icon()}
 }
 
 func PatchSelector(selector, name string) bool {

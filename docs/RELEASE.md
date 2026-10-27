@@ -1,6 +1,6 @@
 # 构建与发布
 
-更新日期：2026-10-27。版本由根`version.properties`维护：本次 **1.0.0 / code3**，补丁号范围0～49；后续版本名按该范围进位，versionCode必须单调递增。原0.1.0 / code1和0.0.1 / code2均为未发布开发构建。
+更新日期：2026-10-28。版本由根`version.properties`维护：本次 **1.0.1 / code4**，补丁号范围0～49；后续版本名按该范围进位，versionCode必须单调递增。原0.1.0 / code1和0.0.1 / code2均为未发布开发构建。
 
 ## 本机工具与签名
 
@@ -101,7 +101,7 @@ JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests
 
 八项Secrets已配置：LEES_CLASH_KEYSTORE_BASE64、LEES_CLASH_STORE_PASSWORD、LEES_CLASH_KEY_PASSWORD、CF_API_TOKEN及四项TENCENT_COS配置。不得把值写入源码 / 日志。镜像流程使用锁定COS SDK和Wrangler，不安装到本机系统环境。
 
-## 本次发行
+## 已发布基线：1.0.0
 
 - 版本：**1.0.0 / versionCode3**，标签`v1.0.0`；[私有Release](https://github.com/lyq2010/lees-clash/releases/tag/v1.0.0)。
 - 范围：用户明确选择私有Release＋公开COS / R2镜像，不附源码包；仓库保持私有，LICENSE / NOTICE及原有许可继续保留。

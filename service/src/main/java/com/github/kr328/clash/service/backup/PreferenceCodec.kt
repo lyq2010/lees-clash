@@ -27,6 +27,7 @@ object PreferenceCodec {
             "proxy_line",
             "proxy_sort",
             "proxy_last_group",
+            "group_layout", "node_layout",
             "access_control_sort",
             "access_control_reverse",
             "access_control_system_app",
@@ -46,6 +47,7 @@ object PreferenceCodec {
                         "dark_mode",
                         "proxy_sort",
                         "proxy_last_group",
+                        "group_layout", "node_layout",
                         "access_control_sort" -> "string"
                         else -> "boolean"
                     }

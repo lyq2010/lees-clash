@@ -33,6 +33,7 @@ enum class LucidSymbol {
     Add,
     Folder,
     Shield,
+    Bell,
 }
 
 @Composable
@@ -48,6 +49,10 @@ fun LucidIcon(symbol: LucidSymbol, color: Color, modifier: Modifier = Modifier) 
                 drawPath(shape, color, style = Stroke(1.8f, cap = StrokeCap.Round))
             }
             when (symbol) {
+                LucidSymbol.Bell -> {
+                    path(5f, 17f, 7f, 14f, 7f, 9f, 9f, 5f, 15f, 5f, 17f, 9f, 17f, 14f, 19f, 17f, 5f, 17f)
+                    path(10f, 20f, 14f, 20f)
+                }
                 LucidSymbol.Check -> path(5f, 12f, 10f, 17f, 20f, 6f)
                 LucidSymbol.Chevron -> path(9f, 5f, 16f, 12f, 9f, 19f)
                 LucidSymbol.Down -> path(5f, 9f, 12f, 16f, 19f, 9f)

@@ -1,43 +1,33 @@
 package io.github.leenban.clash.lucid
 
 import android.net.Uri
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.leenban.clash.core.model.ProxySort
 import io.github.leenban.clash.design.lucid.*
+import io.github.leenban.clash.design.store.UiStore
 
 @Composable
-fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: () -> Unit) {
+fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: () -> Unit, ui: UiStore? = null) {
+    val context = LocalContext.current
+    val preferences = ui ?: remember(context) { UiStore(context.applicationContext) }
     var query by rememberSaveable { mutableStateOf("") }
+    var layout by remember(state.settingsRevision) { mutableStateOf(preferences.groupLayout) }
+    val groups = remember(state.groups, query) { state.groups.filter { it.name.contains(query, true) } }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("代理策略", back)
-        if (!state.running) LucidSection(footer = "所选配置的策略组；手动选择会保存，动态策略结果在启动后显示。") {}
         LucidSearch(query, { query = it }, "搜索策略组")
-        LazyColumn {
-            item {
-                LucidSection("策略组") {
-                    state.groups
-                        .filter { it.name.contains(query, true) }
-                        .forEach { entry ->
-                            LucidRow(
-                                entry.name,
-                                subtitle = entry.group.type,
-                                value = entry.group.now,
-                                symbol = LucidSymbol.Network,
-                                tint = Color(0xFF5856D6),
-                                onClick = { navigate("nodes/${Uri.encode(entry.name)}") },
-                            )
-                        }
-                }
-            }
-            if (state.groups.isEmpty()) item { LucidEmpty("没有策略组", "导入包含代理与策略组的配置后，在这里选择线路。") }
+        PolicyLayoutPicker(layout) { layout = it; preferences.groupLayout = it }
+        if (groups.isEmpty()) LucidEmpty("没有匹配的策略组")
+        else PolicyCollection(groups, layout, { it.name }, Modifier.weight(1f)) { entry, list ->
+            val open = { navigate("nodes/${Uri.encode(entry.name)}") }
+            if (list) LucidRow(entry.name, subtitle = entry.group.type, value = entry.group.now,
+                leading = { PolicyGroupIcon(entry.group.icon) }, onClick = open)
+            else PolicyTile(entry.name, entry.group.type, entry.group.now, icon = entry.group.icon, onClick = open)
         }
     }
 }
@@ -46,99 +36,44 @@ fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: () -> Uni
 fun NodesScreen(name: String, state: ClientState, vm: ClientViewModel, back: () -> Unit) {
     var query by rememberSaveable(name) { mutableStateOf("") }
     var sort by rememberSaveable(name) { mutableStateOf(vm.repository.ui.proxySort) }
+    var layout by remember(state.settingsRevision) { mutableStateOf(vm.repository.ui.nodeLayout) }
     val group = state.selectedGroup
+    val exits = rememberNodeExitLookup(name, state, vm.repository)
     val selectable = group?.type?.lowercase() in listOf("selector", "select")
-    Column(Modifier.fillMaxSize()) {
-        LucidHeader(
-            name,
-            back,
-            if (state.running) "测速" else "启动后测速",
-            actionEnabled = state.running && !state.busy,
-        ) {
-            vm.health(name)
-        }
-        LucidSearch(query, { query = it }, "搜索节点")
-        LucidSection(
-            footer =
-                if (!state.running) "当前服务已停止。这里显示配置与已缓存节点；可预选手动策略，启动后生效。"
-                else if (selectable) "点按节点切换线路，选择会自动保存。" else "该策略组由内核自动选择线路，当前选择会随网络状态更新。"
-        ) {
-            LucidRow(
-                "排序",
-                value =
-                    when (sort) {
-                        ProxySort.Default -> "配置顺序"
-                        ProxySort.Title -> "名称"
-                        else -> "延迟"
-                    },
-                onClick = {
-                    sort = ProxySort.values()[(sort.ordinal + 1) % ProxySort.values().size]
-                    vm.repository.ui.proxySort = sort
-                    vm.changed()
-                },
-            )
-        }
-        val nodes =
-            group?.proxies.orEmpty().filter {
-                it.name.contains(query, true) || it.title.contains(query, true)
-            }
-        LazyColumn(Modifier.weight(1f)) {
-            items(nodes, key = { it.name }) { proxy ->
-                Box(
-                    Modifier.padding(horizontal = 20.dp)
-                        .background(LocalLucidColors.current.surface)
-                ) {
-                    LucidRow(
-                        proxy.title.ifBlank { proxy.name },
-                        subtitle = proxy.subtitle.ifBlank { proxy.type },
-                        value =
-                            when {
-                                !state.running -> "未运行"
-                                proxy.delay <= 0 -> "未测试"
-                                proxy.delay >= 65535 -> "超时"
-                                else -> "${proxy.delay} ms"
-                            },
-                        selected = group?.now == proxy.name,
-                        onClick =
-                            if (selectable) {
-                                { vm.selectGroup(name, proxy.name) }
-                            } else null,
-                    )
-                }
-            }
-            if (nodes.isEmpty()) item { LucidEmpty("没有匹配的节点") }
-        }
+    val nodes = remember(group?.proxies, query) {
+        group?.proxies.orEmpty().filter { it.name.contains(query, true) || it.title.contains(query, true) }
     }
-}
-
-@Composable
-fun ProvidersScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        LucidHeader("资源提供器", back, "刷新") { vm.reloadPage() }
-        LazyColumn {
-            item {
-                LucidSection(
-                    "配置中的资源",
-                    footer = if (!state.running) "服务已停止，显示所选配置的资源；启动后可以单独更新。" else null,
-                ) {
-                    state.providers.forEach { provider ->
-                        LucidRow(
-                            provider.name,
-                            subtitle = "${provider.type} · ${provider.vehicleType}",
-                            value = if (state.running) "更新" else "启动后更新",
-                            onClick = {
-                                if (!state.running) vm.error("启动服务后可以单独更新资源；也可从配置列表更新订阅")
-                                else
-                                    vm.task(progress = "正在更新资源", success = "资源更新完成") {
-                                        vm.repository.update(provider)
-                                        vm.changed()
-                                    }
-                            },
-                        )
-                    }
-                }
+        LucidHeader(name, back, if (state.running) "测速" else "启动后测速",
+            actionEnabled = state.running && !state.busy) { vm.health(name) }
+        LucidSearch(query, { query = it }, "搜索节点")
+        PolicyLayoutPicker(layout) { layout = it; vm.repository.ui.nodeLayout = it }
+        PolicyActionBar(state.smartMode, sort, showMode = state.smartSupported,
+            modeEnabled = !state.busy && group != null,
+            exitEnabled = exits.running || (state.running && !state.busy),
+            progress = if (exits.running) "${exits.completed}/${exits.total}" else null,
+            onMode = { vm.setSmartMode(name, if (state.smartMode == "smart") "config" else "smart") }, onSort = {
+                sort = ProxySort.values()[(sort.ordinal + 1) % ProxySort.values().size]
+                vm.repository.ui.proxySort = sort
+                vm.changed()
+            }, onExit = {
+                if (exits.running) exits.cancel() else exits.start(group?.proxies.orEmpty())
+            })
+        if (nodes.isEmpty()) LucidEmpty("没有匹配的节点")
+        else PolicyCollection(nodes, layout, { it.name }, Modifier.weight(1f)) { proxy, list ->
+            val detail = when {
+                !state.running -> "未运行"
+                proxy.delay <= 0 -> "未测试"
+                proxy.delay >= 65535 -> "超时"
+                else -> "${proxy.delay} ms"
             }
-            if (state.providers.isEmpty()) item { LucidEmpty("没有外部资源", "当前配置没有声明代理或规则提供器。") }
+            val subtitle = listOfNotNull(proxy.subtitle.ifBlank { proxy.type },
+                if (proxy.isGroup) null else exits.subtitles[proxy.name]).joinToString("\n")
+            val select = if (selectable) ({ vm.selectGroup(name, proxy.name) }) else null
+            if (list) LucidRow(proxy.title.ifBlank { proxy.name }, subtitle = subtitle,
+                value = detail, selected = group?.now == proxy.name, onClick = select)
+            else PolicyTile(proxy.title.ifBlank { proxy.name }, subtitle, detail,
+                selected = group?.now == proxy.name, onClick = select)
         }
     }
 }

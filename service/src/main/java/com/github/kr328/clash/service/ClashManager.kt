@@ -23,6 +23,7 @@ class ClashManager(private val context: Context) :
     IClashManager, CoroutineScope by CoroutineScope(Dispatchers.IO) {
     private val store = ServiceStore(context)
     private val geo = GeoDataManager(context)
+    private val connectionApps = ConnectionAppResolver(context)
     private var logReceiver: ReceiveChannel<LogMessage>? = null
 
     override fun queryGeoData(): String = geo.status()
@@ -52,11 +53,21 @@ class ClashManager(private val context: Context) :
                     "dns",
                     "runtime",
                     "networkCheck",
+                    "nodeExit",
                     "lan",
                     "clearDnsCache",
+                    "smartMode",
+                    "smartAll",
                 )
         )
         require(payload.length <= 8192)
+        if (operation == "smartMode" || operation == "smartAll") {
+            val request = DiagnosticJson.format.parseToJsonElement(payload).jsonObject
+            val result = profileDiagnostic(if (operation == "smartAll") "profileSmartAll" else "profileSmartMode", request)
+            if (!request["mode"]?.jsonPrimitive?.content.orEmpty().isBlank()) context.sendOverrideChanged()
+            return result
+        }
+        if (operation == "nodeExit") check(StatusProvider.serviceRunning) { "启动服务后可以检测节点落地信息" }
         if (operation == "clearDnsCache") check(StatusProvider.serviceRunning) { "启动服务后可以清理 DNS 缓存" }
         if (operation == "runtime" && payload.contains("javaStacks")) {
             check(io.github.leenban.clash.service.BuildConfig.DEBUG)
@@ -78,6 +89,8 @@ class ClashManager(private val context: Context) :
         val result = DiagnosticJson.checked(
             io.github.leenban.clash.core.bridge.Bridge.nativeDiagnostics(operation, payload)
         )
+        if (operation == "connections" || operation == "connection")
+            return connectionApps.decorate(operation, result)
         if (operation == "traffic") return JsonObject(
             DiagnosticJson.format.parseToJsonElement(result).jsonObject +
                 mapOf(
@@ -89,8 +102,10 @@ class ClashManager(private val context: Context) :
         if (operation == "runtime") {
             val memory = android.os.Debug.MemoryInfo()
             android.os.Debug.getMemoryInfo(memory)
-            return JsonObject(DiagnosticJson.format.parseToJsonElement(result).jsonObject +
-                ("servicePssKiB" to JsonPrimitive(memory.totalPss))).toString()
+            return JsonObject(DiagnosticJson.format.parseToJsonElement(result).jsonObject + mapOf(
+                "servicePssKiB" to JsonPrimitive(memory.totalPss),
+                "serviceCpuMs" to JsonPrimitive(android.os.Process.getElapsedCpuTime()),
+            )).toString()
         }
         return result
     }
@@ -233,6 +248,13 @@ class ClashManager(private val context: Context) :
     }
 
     override suspend fun updateProvider(type: Provider.Type, name: String) {
+        if (!StatusProvider.serviceRunning) {
+            profileDiagnostic("profileUpdateProvider", buildJsonObject {
+                put("id", name)
+                put("recordType", type.name)
+            })
+            return
+        }
         return Clash.updateProvider(type, name).await()
     }
 

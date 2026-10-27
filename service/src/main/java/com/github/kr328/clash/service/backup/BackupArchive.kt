@@ -16,7 +16,7 @@ internal object BackupArchive {
     fun manifest(input: InputStream): String {
         ZipInputStream(input).use { zip ->
             val entry = zip.nextEntry ?: error("备份为空")
-            require(entry.name == "manifest.json") { "不是 Lee’s Clash 备份文件" }
+            require(entry.name == "manifest.json") { "不是 Lee's Clash 备份文件" }
             val data = zip.readBytesLimited(2 * 1024 * 1024)
             return data.toString(Charsets.UTF_8)
         }

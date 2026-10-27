@@ -16,6 +16,13 @@ var cache struct {
 	profile *Profile
 }
 
+// Running configurations own their data; do not retain a second stopped preview.
+func ClearCache() {
+	cache.Lock()
+	defer cache.Unlock()
+	cache.path, cache.stamp, cache.profile = "", "", nil
+}
+
 // Reuse immutable parsed data across group queries. Local file updates invalidate it.
 func Read(path, secretKey string) (*Profile, error) {
 	hash := sha256.New()

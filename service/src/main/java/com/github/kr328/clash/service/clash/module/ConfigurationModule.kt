@@ -4,6 +4,7 @@ import android.app.Service
 import io.github.leenban.clash.common.constants.Intents
 import io.github.leenban.clash.common.log.Log
 import io.github.leenban.clash.core.Clash
+import io.github.leenban.clash.core.model.ProxySort
 import io.github.leenban.clash.service.StatusProvider
 import io.github.leenban.clash.service.data.ImportedDao
 import io.github.leenban.clash.service.data.SelectionDao
@@ -60,7 +61,10 @@ class ConfigurationModule(service: Service) : Module<ConfigurationModule.LoadExc
                 Clash.load(service.importedDir.resolve(active.uuid.toString())).await()
 
                 val remove = SelectionDao().querySelections(active.uuid)
-                    .filterNot { Clash.patchSelector(it.proxy, it.selected) }
+                    .filterNot {
+                        Clash.patchSelector(it.proxy, it.selected) ||
+                            Clash.queryGroup(it.proxy, ProxySort.Default).type.equals("Smart", true)
+                    }
                     .map { it.proxy }
 
                 SelectionDao().removeSelections(active.uuid, remove)

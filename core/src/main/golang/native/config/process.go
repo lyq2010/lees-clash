@@ -10,6 +10,7 @@ import (
 
 	"lees/native/common"
 	"lees/native/extension"
+	"lees/native/smart"
 
 	"github.com/metacubex/mihomo/common/utils"
 	"github.com/metacubex/mihomo/config"
@@ -21,6 +22,7 @@ var processors = []processor{
 	patchExternalController, // must before patchOverride, so we only apply ExternalController in Override settings
 	extension.Apply,
 	patchOverride,
+	smart.Apply,
 	patchGeneral,
 	patchProfile,
 	patchDns,
@@ -110,6 +112,9 @@ func patchListeners(cfg *config.RawConfig, _ string) error {
 
 func patchProviders(cfg *config.RawConfig, profileDir string) error {
 	forEachProviders(cfg, func(index int, total int, key string, provider map[string]any, prefix string) {
+		// Resource requests use the running configuration's routing rules, never a
+		// provider-specific forced proxy. Stopped manual updates use DIRECT.
+		provider["proxy"] = ""
 		path, _ := provider["path"].(string)
 		if len(path) > 0 {
 			path = common.ResolveAsRoot(path)

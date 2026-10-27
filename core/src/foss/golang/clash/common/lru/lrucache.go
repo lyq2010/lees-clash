@@ -86,6 +86,23 @@ func (c *LruCache[K, V]) Clear() {
 	c.cache = make(map[K]*list.Element[*entry[K, V]])
 }
 
+func (c *LruCache[K, V]) Len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.cache)
+}
+
+// Keys returns a snapshot for bounded owner-scoped cleanup.
+func (c *LruCache[K, V]) Keys() []K {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	keys := make([]K, 0, len(c.cache))
+	for key := range c.cache {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 // Get returns any representation of a cached response and a bool
 // set to true if the key was found.
 func (c *LruCache[K, V]) Get(key K) (V, bool) {

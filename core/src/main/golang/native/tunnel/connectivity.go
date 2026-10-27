@@ -1,9 +1,12 @@
 package tunnel
 
 import (
+	"context"
 	"sync"
+	"time"
 
 	"github.com/metacubex/mihomo/adapter/outboundgroup"
+	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/constant/provider"
 	"github.com/metacubex/mihomo/log"
 	"github.com/metacubex/mihomo/tunnel"
@@ -22,6 +25,17 @@ func HealthCheck(name string) {
 	if !ok {
 		log.Warnln("Request health check for `%s`: invalid type %s", name, p.Type().String())
 
+		return
+	}
+
+	if p.Type() == C.Smart {
+		// Use Smart's shared probe budget instead of launching the providers'
+		// independent health-check workers. Bound even an all-failed large group.
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if _, err := g.URLTest(ctx, "", nil); err != nil {
+			log.Warnln("Smart health check: %s", err)
+		}
 		return
 	}
 

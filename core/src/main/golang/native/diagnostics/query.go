@@ -13,7 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/metacubex/mihomo/adapter/outboundgroup"
+	"github.com/metacubex/mihomo/common/lru"
+	"github.com/metacubex/mihomo/component/process"
 	"github.com/metacubex/mihomo/component/resolver"
+	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/listener"
 	"github.com/metacubex/mihomo/tunnel"
 	"github.com/metacubex/mihomo/tunnel/statistic"
@@ -22,6 +26,17 @@ import (
 
 const maxPage = 50
 const maxResponse = 192 * 1024
+
+// Installed by the Android delegate; host diagnostics do not load platform hooks.
+var PackageResolver func(*C.Metadata) (string, error)
+
+type connectionOwner struct {
+	process string
+	uid     uint32
+}
+
+// Avoid repeated Android Binder lookups during the one-second connection refresh.
+var connectionOwners = lru.New[string, connectionOwner](lru.WithSize[string, connectionOwner](512), lru.WithAge[string, connectionOwner](30))
 
 type Request struct {
 	URL        string   `json:"url"`
@@ -35,6 +50,7 @@ type Request struct {
 	Path       string   `json:"path"`
 	SecretKey  string   `json:"secretKey"`
 	Overrides  []string `json:"overrides"`
+	Mode       string   `json:"mode"`
 }
 
 type Page[T any] struct {
@@ -50,7 +66,7 @@ type Connection struct {
 	Destination string   `json:"destination"`
 	Network     string   `json:"network"`
 	Process     string   `json:"process"`
-	UID         uint32   `json:"uid"`
+	UID         int64    `json:"uid"`
 	Upload      int64    `json:"upload"`
 	Download    int64    `json:"download"`
 	Start       string   `json:"start"`
@@ -98,12 +114,26 @@ func paginate[T any](items []T, offset, limit int) Page[T] {
 }
 
 func connection(info *statistic.TrackerInfo) Connection {
-	c := Connection{ID: info.UUID.String(), Upload: info.UploadTotal.Load(), Download: info.DownloadTotal.Load(), Start: info.Start.UTC().Format(time.RFC3339Nano), Chains: []string(info.Chain), Rule: info.Rule, RulePayload: info.RulePayload}
+	c := Connection{ID: info.UUID.String(), UID: -1, Upload: info.UploadTotal.Load(), Download: info.DownloadTotal.Load(), Start: info.Start.UTC().Format(time.RFC3339Nano), Chains: []string(info.Chain), Rule: info.Rule, RulePayload: info.RulePayload}
 	if c.Chains == nil {
 		c.Chains = []string{}
 	}
 	if m := info.Metadata; m != nil {
-		c.Host, c.Network, c.Process, c.UID = m.Host, m.NetWork.String(), m.Process, m.Uid
+		// Strict mode often never looks up the application while routing. Resolve
+		// a copy for diagnostics without changing routing metadata or off mode.
+		copy := *m
+		if copy.Process == "" && PackageResolver != nil && tunnel.FindProcessMode() != process.FindProcessOff {
+			if owner, ok := connectionOwners.Get(c.ID); ok {
+				copy.Process, copy.Uid = owner.process, owner.uid
+			} else if pkg, err := PackageResolver(&copy); err == nil {
+				copy.Process = pkg
+				connectionOwners.Set(c.ID, connectionOwner{pkg, copy.Uid})
+			}
+		}
+		c.Host, c.Network, c.Process = m.Host, m.NetWork.String(), copy.Process
+		if copy.Uid > 0 || copy.Process != "" {
+			c.UID = int64(copy.Uid)
+		}
 		c.Source = fmt.Sprintf("%s:%d", m.SrcIP, m.SrcPort)
 		c.Destination = fmt.Sprintf("%s:%d", m.DstIP, m.DstPort)
 	}
@@ -120,6 +150,18 @@ func Query(operation, payload string) string {
 	}
 	var result any
 	switch operation {
+	case "profileSmartAll":
+		value, err := preview.SmartAll(request.Path, request.SecretKey, request.Mode)
+		if err != nil {
+			return failure(err.Error())
+		}
+		result = value
+	case "profileSmartMode":
+		value, err := preview.SmartMode(request.Path, request.SecretKey, request.ID, request.Mode)
+		if err != nil {
+			return failure(err.Error())
+		}
+		result = value
 	case "lan":
 		ports := listener.GetPorts()
 		result = map[string]any{"allowLan": listener.AllowLan(), "bindAddress": listener.BindAddress(), "httpPort": ports.Port, "socksPort": ports.SocksPort, "mixedPort": ports.MixedPort}
@@ -144,10 +186,18 @@ func Query(operation, payload string) string {
 			return failure(err.Error())
 		}
 		result = value
+	case "nodeExit":
+		value, err := nodeExit(request)
+		if err != nil {
+			return failure(err.Error())
+		}
+		result = value
 	case "runtime":
 		var memory runtime.MemStats
 		runtime.ReadMemStats(&memory)
 		values := map[string]any{"heapAlloc": memory.HeapAlloc, "heapInuse": memory.HeapInuse, "heapReleased": memory.HeapReleased, "sys": memory.Sys, "goroutines": runtime.NumGoroutine()}
+		values["smart"] = outboundgroup.SmartMemoryStats()
+		values["immediatePageRelease"] = immediatePageRelease
 		if request.Query == "stacks" {
 			buffer := make([]byte, 64*1024)
 			values["stacks"] = string(buffer[:runtime.Stack(buffer, true)])
@@ -170,16 +220,27 @@ func Query(operation, payload string) string {
 			return failure(err.Error())
 		}
 		result = map[string]bool{"ok": true}
-	case "profileGroupNames", "profileGroup", "profileGroupSummary", "profileRules", "profileMode", "profileProviders":
+	case "profileUpdateProvider":
+		if err := preview.UpdateProvider(request.Path, request.SecretKey, request.RecordType, request.ID); err != nil {
+			return failure(err.Error())
+		}
+		result = map[string]bool{"ok": true}
+	case "profileMode", "profileProviders":
+		profile, err := preview.ReadMetadata(request.Path, request.SecretKey)
+		if err != nil {
+			return failure(err.Error())
+		}
+		if operation == "profileMode" {
+			result = map[string]string{"mode": profile.Mode}
+		} else {
+			result = profile.Providers
+		}
+	case "profileGroupNames", "profileGroup", "profileGroupSummary", "profileRules":
 		profile, err := preview.Read(request.Path, request.SecretKey)
 		if err != nil {
 			return failure(err.Error())
 		}
 		switch operation {
-		case "profileProviders":
-			result = profile.Providers
-		case "profileMode":
-			result = map[string]string{"mode": profile.Mode}
 		case "profileGroupNames":
 			names := []string{}
 			for _, group := range profile.Groups {

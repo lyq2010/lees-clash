@@ -16,6 +16,12 @@ import kotlinx.coroutines.launch
 @Suppress("unused")
 class MainApplication : Application() {
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+            io.github.leenban.clash.lucid.PolicyIconLoader.clearMemory()
+    }
+
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
 

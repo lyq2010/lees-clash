@@ -279,13 +279,6 @@ fun SettingsScreen(
                                 )
                             }
                         }
-                        LucidToggle(
-                            "通知显示实时流量",
-                            remember(revision) { repo.service.dynamicNotification },
-                            !state.running,
-                        ) {
-                            update { repo.service.dynamicNotification = it }
-                        }
                     }
                 }
                 item {
@@ -315,7 +308,7 @@ fun AboutScreen(state: ClientState, back: () -> Unit, openLicense: (String) -> U
         LucidHeader("关于", back)
         LazyColumn {
             item {
-                LucidSection("Lee’s Clash") {
+                LucidSection("Lee's Clash") {
                     LucidRow("应用版本", value = io.github.leenban.clash.BuildConfig.VERSION_NAME)
                     LucidRow("内核版本", subtitle = state.coreVersion.ifBlank { "读取中" })
                     LucidRow("应用标识", subtitle = io.github.leenban.clash.BuildConfig.APPLICATION_ID)

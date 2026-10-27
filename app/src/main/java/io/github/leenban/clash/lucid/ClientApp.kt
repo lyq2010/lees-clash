@@ -60,6 +60,7 @@ fun ClientApp(
     }
     val owner = LocalLifecycleOwner.current
     val holder = rememberSaveableStateHolder()
+    val currentStack by rememberUpdatedState(stack)
     LaunchedEffect(state.navigation?.id) {
         state.navigation?.let { request ->
             vm.consumeNavigation(request.id)
@@ -129,7 +130,7 @@ fun ClientApp(
                         if (wide)
                             Column(Modifier.width(210.dp).fillMaxHeight()) {
                                 Text(
-                                    "Lee’s Clash",
+                                    "Lee's Clash",
                                     Modifier.padding(20.dp),
                                     color = c.text,
                                     fontSize = 22.sp,
@@ -147,6 +148,12 @@ fun ClientApp(
                             val visibleKind = visibleRoute.substringBefore('/')
                             val argument = Uri.decode(visibleRoute.substringAfter('/', ""))
                             holder.SaveableStateProvider(visibleRoute) {
+                                DisposableEffect(visibleRoute) {
+                                    onDispose {
+                                        vm.releasePage(visibleRoute)
+                                        if (visibleRoute !in currentStack) holder.removeState(visibleRoute)
+                                    }
+                                }
                                 when (visibleKind) {
                                     "home" -> HomeScreen(state, navigate, toggle, vm::setMode) { state.active?.let(vm::updateProfile) }
                                     "tools" -> ToolsScreen(state, vm, navigate, confirm)
@@ -176,9 +183,10 @@ fun ClientApp(
                                             confirm,
                                             editExternal,
                                         )
-                                    "groups" -> GroupsScreen(state, navigate, back)
+                                    "groups" -> GroupsScreen(state, navigate, back, vm.repository.ui)
                                     "nodes" -> NodesScreen(argument, state, vm, back)
                                     "providers" -> ProvidersScreen(state, vm, back)
+                                    "notifications" -> NotificationScreen(state, vm, back)
                                     "connections" ->
                                         ConnectionsScreen(state, vm, navigate, back, confirm)
                                     "connection" -> ConnectionScreen(state, vm, back, confirm)

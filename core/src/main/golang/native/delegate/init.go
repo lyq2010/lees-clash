@@ -10,6 +10,7 @@ import (
 	"github.com/metacubex/mihomo/log"
 
 	"lees/native/app"
+	"lees/native/diagnostics"
 	"lees/native/platform"
 
 	"github.com/metacubex/mihomo/component/dialer"
@@ -31,20 +32,12 @@ func Init(home, versionName, gitVersion string, platformVersion int) {
 	constant.Version = strings.ToLower(constant.Version)
 	app.ApplyVersionName(versionName)
 	app.ApplyPlatformVersion(platformVersion)
+	diagnostics.PackageResolver = app.ResolvePackage
 
 	process.DefaultPackageNameResolver = func(metadata *constant.Metadata) (string, error) {
-		src, dst := metadata.RawSrcAddr, metadata.RawDstAddr
-
-		if src == nil || dst == nil {
-			return "", process.ErrInvalidNetwork
-		}
-
-		uid := app.QuerySocketUid(metadata.RawSrcAddr, metadata.RawDstAddr)
-		pkg := app.QueryAppByUid(uid)
-
-		log.Debugln("[PKG] %s --> %s by %d[%s]", metadata.SourceAddress(), metadata.RemoteAddress(), uid, pkg)
-
-		return pkg, nil
+		pkg, err := app.ResolvePackage(metadata)
+		log.Debugln("[PKG] %s --> %s by %d[%s]", metadata.SourceAddress(), metadata.RemoteAddress(), metadata.Uid, pkg)
+		return pkg, err
 	}
 
 	dialer.DefaultSocketHook = func(network, address string, conn syscall.RawConn) error {

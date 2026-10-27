@@ -34,7 +34,7 @@ internal fun profileDate(value: Long): String = if (value > 0)
 @Composable
 internal fun HomeProfileSummary(profile: Profile?) {
     val text = when {
-        profile == null -> "导入配置后即可使用代理与规则"
+        profile == null -> "尚未选择配置"
         profile.type != Profile.Type.Url -> "${profile.name} · ${if (profile.type == Profile.Type.File) "本地配置" else "外部配置"}"
         else -> profile.name
     }
@@ -44,11 +44,12 @@ internal fun HomeProfileSummary(profile: Profile?) {
             val remaining = remainingQuota(profile.total, profile.upload, profile.download)
             val quota = remaining?.let { "剩余 ${formatBytes(it)} / ${formatBytes(profile.total)}" }
                 ?: "订阅未提供总额度"
-            Text(quota, Modifier.padding(horizontal = 15.dp).padding(top = 10.dp), color = Color.White, fontSize = 14.sp)
+            Text(quota, Modifier.padding(horizontal = 15.dp).padding(top = 3.dp), color = Color.White, fontSize = 14.sp)
             Text(if (profile.expire > 0) "${if (profile.expire <= System.currentTimeMillis()) "已到期" else "到期"} ${profileDate(profile.expire)}"
-                else "订阅未提供到期时间", Modifier.padding(horizontal = 15.dp).padding(top = 6.dp), color = Color.White, fontSize = 13.sp)
+                else "到期时间未知", Modifier.padding(horizontal = 15.dp).padding(top = 3.dp), color = Color.White, fontSize = 13.sp)
         }
-        Text("上次更新 ${profileDate(profile.updatedAt)}", Modifier.padding(horizontal = 15.dp).padding(top = 6.dp), color = Color.White.copy(alpha = .8f), fontSize = 12.sp)
+        Text("上次更新 ${profileDate(profile.updatedAt)}", Modifier.padding(horizontal = 15.dp).padding(top = 3.dp),
+            color = Color.White.copy(alpha = .8f), fontSize = 12.sp)
     }
 }
 
@@ -74,7 +75,6 @@ fun SubscriptionScreen(state: ClientState, vm: ClientViewModel, navigate: (Strin
                     LucidRow("资源管理", onClick = { navigate("providers") })
                 }
                 if (profile.type == Profile.Type.Url) SubscriptionDetails(profile)
-                else LucidSection(footer = "本地和外部配置不显示订阅额度。") {}
             }
         }
     }

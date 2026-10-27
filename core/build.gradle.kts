@@ -1,6 +1,7 @@
 import android.databinding.tool.ext.capitalizeUS
 import com.github.kr328.golang.GolangBuildTask
 import com.github.kr328.golang.GolangPlugin
+import java.io.ByteArrayOutputStream
 
 plugins {
     kotlin("android")
@@ -57,8 +58,32 @@ dependencies {
 }
 
 afterEvaluate {
-    tasks.withType(GolangBuildTask::class.java).forEach {
-        it.inputs.dir(golangSource)
+    tasks.withType(GolangBuildTask::class.java).forEach { goTask ->
+        goTask.inputs.dir(golangSource)
+        goTask.inputs.property("nativeMemoryAdvice", "madvdontneed=1")
+        goTask.doFirst {
+            val command = goTask.commandLine.toMutableList()
+            val tagIndex = command.indexOf("-tags")
+            val output = ByteArrayOutputStream()
+            project.exec {
+                workingDir = goTask.workingDir
+                environment(goTask.environment)
+                commandLine(listOf(command.first(), "list", "-f", "{{.DefaultGODEBUG}}") +
+                    (if (tagIndex >= 0) listOf("-tags", command[tagIndex + 1]) else emptyList()) + command.last())
+                standardOutput = output
+            }
+            // Android shared Go libraries start with an empty environment.
+            // Preserve Go's module/version compatibility defaults when setting
+            // the page-release policy at link time, rather than replacing them.
+            val defaults = output.toString(Charsets.UTF_8).trim()
+            check(!defaults.startsWith("<")) { "Unable to read Go runtime compatibility defaults" }
+            val advice = listOf(defaults, "madvdontneed=1").filter { it.isNotEmpty() }.joinToString(",")
+            val flag = "-X=runtime.godebugDefault=$advice -X=lees/native/diagnostics.runtimeMemoryAdvice=madvdontneed=1"
+            val flagIndex = command.indexOf("-ldflags")
+            if (flagIndex >= 0) command[flagIndex + 1] += " $flag"
+            else command.addAll(command.size - 1, listOf("-ldflags", flag))
+            goTask.commandLine(command)
+        }
     }
 }
 

@@ -229,9 +229,17 @@ func RuleProviders() map[string]P.RuleProvider {
 // UpdateProxies handle update proxies
 func UpdateProxies(newProxies map[string]C.Proxy, newProviders map[string]P.ProxyProvider) {
 	configMux.Lock()
+	previous := proxies
 	proxies = newProxies
 	providers = newProviders
 	configMux.Unlock()
+	// Smart owns cancellable probes and bounded observations. Release them on
+	// replacement, even while old established connections are draining.
+	for name, proxy := range previous {
+		if proxy.Type() == C.Smart && newProxies[name] != proxy {
+			_ = proxy.Close()
+		}
+	}
 }
 
 func UpdateListeners(newListeners map[string]C.InboundListener) {

@@ -5,6 +5,10 @@ import io.github.leenban.clash.design.model.File
 import io.github.leenban.clash.service.model.Profile
 
 data class PolicyGroup(val name: String, val group: ProxyGroup)
+data class SmartGroupState(val mode: String = "config", val supported: Boolean = false)
+data class SmartSummary(val total: Int = 0, val enabled: Int = 0) {
+    val allEnabled get() = total > 0 && enabled == total
+}
 
 data class AppChoice(
     val packageName: String,
@@ -40,6 +44,9 @@ data class ClientState(
     val traffic: TrafficStats = TrafficStats(),
     val groups: List<PolicyGroup> = emptyList(),
     val selectedGroup: ProxyGroup? = null,
+    val smartMode: String = "config",
+    val smartSupported: Boolean = false,
+    val smartSummary: SmartSummary? = null,
     val connections: DiagnosticPage<ConnectionInfo> = DiagnosticPage(),
     val connectionQuery: String = "",
     val connection: ConnectionInfo? = null,

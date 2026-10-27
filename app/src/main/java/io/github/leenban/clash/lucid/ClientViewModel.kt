@@ -174,6 +174,9 @@ class ClientViewModel(application: Application) :
         if (destination.startsWith("extension/")) mutable.update { it.copy(extensionJson = null) }
         if (destination.startsWith("connection/") && destination != route)
             mutable.update { it.copy(connection = null, connectionEnded = false) }
+        if (destination.startsWith("nodes/") && destination != route)
+            mutable.update { it.copy(selectedGroup = null, smartSupported = false, smartMode = "config") }
+        if (destination == "tools") mutable.update { it.copy(smartSummary = null) }
         route = destination
         val version = ++pageVersion
         mutable.update { it.copy(pageLoading = true) }
@@ -186,6 +189,13 @@ class ClientViewModel(application: Application) :
         } finally {
             if (version == pageVersion) mutable.update { it.copy(pageLoading = false) }
         }
+    }
+
+    fun releasePage(destination: String) {
+        if (destination == route) return
+        if (!route.startsWith("connection")) connections.reset("")
+        if (route != "rules") rules.reset("")
+        mutable.update { it.retainPageData(route) }
     }
 
     fun search(value: String) {
@@ -340,7 +350,12 @@ class ClientViewModel(application: Application) :
             }
             "nodes" -> {
                 val value = repository.group(argument)
-                if (route == requestedRoute) mutable.update { it.copy(selectedGroup = value) }
+                val smart = if (argument == "GLOBAL") SmartGroupState() else repository.groupSmart(argument)
+                if (route == requestedRoute) mutable.update { it.copy(selectedGroup = value, smartMode = smart.mode, smartSupported = smart.supported) }
+            }
+            "tools" -> {
+                val summary = if (mutable.value.active == null) SmartSummary() else repository.smartAll()
+                if (route == requestedRoute) mutable.update { it.copy(smartSummary = summary) }
             }
             "connections" ->
                 connections.refresh()?.let { page ->
@@ -452,6 +467,22 @@ class ClientViewModel(application: Application) :
     fun health(name: String) {
         task(progress = "正在测速", success = "测速完成") {
             repository.health(name)
+            refreshPage()
+        }
+    }
+
+    fun setSmartMode(name: String, mode: String) {
+        task(progress = "正在保存策略模式", success = if (mutable.value.running) "策略模式已保存" else "策略模式已保存，下次启动生效") {
+            repository.smartMode(name, mode)
+            refreshPage()
+        }
+    }
+
+    fun setAllSmart(enabled: Boolean) {
+        if (mutable.value.busy) return
+        task(progress = "正在更新 URLTest 策略组", success = if (enabled) "URLTest 已全部启用 Smart" else "URLTest 已恢复遵循配置") {
+            val summary = repository.smartAll(if (enabled) "smart" else "config")
+            mutable.update { it.copy(smartSummary = summary) }
             refreshPage()
         }
     }

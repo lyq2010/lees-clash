@@ -146,7 +146,7 @@ func ParseProxyGroup(config map[string]any, proxyMap map[string]C.Proxy, provide
 			if groupOption.URL == "" {
 				groupOption.URL = C.DefaultTestURL
 			}
-		} else {
+		} else if groupOption.Type != "smart" {
 			addTestUrlToProviders(PDs, groupOption.URL, expectedStatus, groupOption.Filter, uint(groupOption.Interval))
 		}
 		providers = append(providers, PDs...)
@@ -167,13 +167,24 @@ func ParseProxyGroup(config map[string]any, proxyMap map[string]C.Proxy, provide
 		}
 
 		// select don't need auto health check
-		if groupOption.Type != "select" && groupOption.Type != "relay" {
+		if groupOption.Type == "smart" {
+			// Smart performs bounded, traffic-triggered checks itself.
+			// Provider-declared checks remain unchanged.
+			if groupOption.Interval == 0 {
+				groupOption.Interval = 300
+			}
+		}
+		if groupOption.Type != "select" && groupOption.Type != "relay" && groupOption.Type != "smart" {
 			if groupOption.Interval == 0 {
 				groupOption.Interval = 300
 			}
 		}
 
-		hc := provider.NewHealthCheck(ps, groupOption.URL, uint(groupOption.TestTimeout), uint(groupOption.Interval), groupOption.Lazy, expectedStatus)
+		healthInterval := groupOption.Interval
+		if groupOption.Type == "smart" {
+			healthInterval = 0
+		}
+		hc := provider.NewHealthCheck(ps, groupOption.URL, uint(groupOption.TestTimeout), uint(healthInterval), groupOption.Lazy, expectedStatus)
 
 		pd, err := provider.NewCompatibleProvider(groupName, ps, hc)
 		if err != nil {
@@ -185,6 +196,8 @@ func ParseProxyGroup(config map[string]any, proxyMap map[string]C.Proxy, provide
 	}
 
 	switch groupOption.Type {
+	case "smart":
+		return NewSmart(groupOption, emptyFallback, providers)
 	case "url-test":
 		opt := URLTestOption{}
 		err = decoder.Decode(config, &opt)

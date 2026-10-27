@@ -41,7 +41,7 @@ fun HomeScreen(
             toggle,
         )
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 16.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             listOf("通用", "网络", "覆写").forEachIndexed { i, title ->
@@ -58,12 +58,12 @@ fun HomeScreen(
                         label = "section-indicator",
                     )
                 Column(
-                    Modifier.width(44.dp).lucidClickable { section = i },
+                    Modifier.width(44.dp).height(48.dp).lucidClickable { section = i },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
                         title,
-                        Modifier.heightIn(min = 48.dp).wrapContentHeight(),
+                        Modifier.weight(1f).wrapContentHeight(),
                         color = tint,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
@@ -76,163 +76,7 @@ fun HomeScreen(
             ->
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                 when (visibleSection) {
-                    0 -> {
-                        LucidCard(
-                            "出站模式",
-                            LucidSymbol.Mode,
-                            listOf(Color(0xFF5450D3), Color(0xFF4298EB)),
-                        ) {
-                            listOf(
-                                    TunnelState.Mode.Direct,
-                                    TunnelState.Mode.Global,
-                                    TunnelState.Mode.Rule,
-                                )
-                                .forEach { mode ->
-                                    val selected = state.mode == mode
-                                    val background by
-                                        animateColorAsState(
-                                            if (selected) Color.Black.copy(alpha = .19f)
-                                            else Color.Transparent,
-                                            tween(180),
-                                            label = "outbound-mode",
-                                        )
-                                    Row(
-                                        Modifier.fillMaxWidth()
-                                            .background(background)
-                                            .lucidClickable(enabled = !state.busy) { setMode(mode) }
-                                            .padding(
-                                                horizontal = 15.dp,
-                                                vertical = if (selected) 10.dp else 8.dp,
-                                            ),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Box(Modifier.width(34.dp)) {
-                                            androidx.compose.animation.AnimatedVisibility(
-                                                selected,
-                                                enter = fadeIn(tween(150)),
-                                                exit = fadeOut(tween(100)),
-                                            ) {
-                                                LucidIcon(
-                                                    LucidSymbol.Check,
-                                                    Color.White,
-                                                    Modifier.size(23.dp),
-                                                )
-                                            }
-                                        }
-                                        Column {
-                                            Text(
-                                                modeTitle(mode),
-                                                color = Color.White,
-                                                fontSize = 16.sp,
-                                            )
-                                            androidx.compose.animation.AnimatedVisibility(
-                                                selected,
-                                                enter =
-                                                    fadeIn(tween(150)) +
-                                                        expandVertically(tween(180)),
-                                                exit =
-                                                    fadeOut(tween(100)) +
-                                                        shrinkVertically(tween(180)),
-                                            ) {
-                                                Text(
-                                                    when (mode) {
-                                                        TunnelState.Mode.Direct -> "所有连接直接发送至目标服务器"
-                                                        TunnelState.Mode.Global -> "所有连接使用选定的代理策略"
-                                                        else -> "根据配置中的规则决定连接策略"
-                                                    },
-                                                    Modifier.padding(top = 9.dp),
-                                                    color = Color.White.copy(alpha = .6f),
-                                                    fontSize = 12.sp,
-                                                    lineHeight = 17.sp,
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            FlowRow(
-                                Modifier.fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                            ) {
-                                CardButton("代理策略") { navigate("groups") }
-                                CardButton("代理规则") { navigate("rules") }
-                            }
-                        }
-                        LucidCard(
-                            "DNS",
-                            LucidSymbol.Dns,
-                            listOf(Color(0xFF53B724), Color(0xFF71D02F)),
-                        ) {
-                            Text(
-                                "使用当前配置解析域名，并管理 DNS 覆写设置。",
-                                Modifier.padding(horizontal = 15.dp),
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                lineHeight = 20.sp,
-                            )
-                            FlowRow(
-                                Modifier.fillMaxWidth().padding(15.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                            ) {
-                                CardButton("DNS 设置") { navigate("dns-settings") }
-                                CardButton("域名查询") { navigate("dns") }
-                            }
-                        }
-                        LucidCard(
-                            if (state.active?.type == io.github.leenban.clash.service.model.Profile.Type.Url) "订阅概览" else "当前配置",
-                            LucidSymbol.Document,
-                            listOf(Color(0xFFED7954), Color(0xFFF8A92C)),
-                        ) {
-                            HomeProfileSummary(state.active)
-                            FlowRow(
-                                Modifier.fillMaxWidth().padding(15.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                            ) {
-                                CardButton(if (state.active == null) "导入配置" else "配置详情") {
-                                    navigate(if (state.active == null) "import" else "subscription")
-                                }
-                                if (state.active?.type == io.github.leenban.clash.service.model.Profile.Type.Url) {
-                                    CardButton(if (state.active.uuid in state.updatingProfiles) "更新中" else "更新订阅",
-                                        enabled = !state.busy && state.active.uuid !in state.updatingProfiles,
-                                        onClick = updateProfile)
-                                }
-                            }
-                        }
-                        LucidCard(
-                            "运行状态",
-                            LucidSymbol.Chart,
-                            listOf(Color(0xFF73747A), Color(0xFF8C8D94)),
-                        ) {
-                            Text(
-                                if (state.traffic.networkBypassed) "按需已暂停 VPN 接管"
-                                else if (state.running) "服务正在运行" else "服务未启动",
-                                Modifier.padding(horizontal = 15.dp),
-                                color = Color.White,
-                                fontSize = 15.sp,
-                            )
-                            Text(
-                                "↑ ${formatBytes(state.traffic.uploadRate)}/s    ↓ ${formatBytes(state.traffic.downloadRate)}/s",
-                                Modifier.padding(15.dp),
-                                color = Color.White,
-                                fontSize = 15.sp,
-                            )
-                            Text(
-                                "本次累计 ↑ ${formatBytes(state.traffic.uploadTotal)}  ↓ ${formatBytes(state.traffic.downloadTotal)}",
-                                Modifier.padding(horizontal = 15.dp), color = Color.White, fontSize = 14.sp,
-                            )
-                            Text(
-                                "服务运行 ${formatRunTime(if (state.running) state.traffic.uptimeMs else 0L)}",
-                                Modifier.padding(horizontal = 15.dp).padding(top = 8.dp, bottom = 12.dp),
-                                color = Color.White.copy(alpha = .8f), fontSize = 13.sp,
-                            )
-                            FlowRow(
-                                Modifier.fillMaxWidth().padding(end = 15.dp, bottom = 15.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                            ) {
-                                CardButton("查看连接") { navigate("connections") }
-                            }
-                        }
-                    }
+                    0 -> HomeGeneralCards(state, navigate, setMode, updateProfile)
                     1 -> {
                         LucidSection("网络接管") {
                             LucidRow(
@@ -258,7 +102,7 @@ fun HomeScreen(
                         }
                     }
                     2 -> {
-                        LucidSection("配置覆写", footer = "仅设置明确需要更改的选项，其余选项继续使用配置文件中的值。") {
+                        LucidSection("配置覆写") {
                             LucidRow(
                                 "通用与高级设置",
                                 symbol = LucidSymbol.Settings,
@@ -292,7 +136,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun CardButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+internal fun CardButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
         Modifier.heightIn(min = 48.dp).lucidClickable(enabled = enabled, scale = true, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -319,6 +163,7 @@ fun ToolsScreen(state: ClientState, vm: ClientViewModel, navigate: (String) -> U
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold,
         )
+        SmartToolsSection(state, vm::setAllSmart)
         LucidSection("网络诊断") {
             LucidRow("IP 与网络检查", symbol = LucidSymbol.Network, onClick = { navigate("network-check") })
             LucidRow(
@@ -378,6 +223,7 @@ fun MoreScreen(navigate: (String) -> Unit) {
                 onClick = { navigate("settings") },
             )
             LucidRow("VPN 与网络", symbol = LucidSymbol.Network, onClick = { navigate("network") })
+            LucidRow("通知", symbol = LucidSymbol.Bell, tint = Color(0xFFFF3B30), onClick = { navigate("notifications") })
             LucidRow(
                 "配置覆写",
                 symbol = LucidSymbol.Document,
@@ -387,7 +233,7 @@ fun MoreScreen(navigate: (String) -> Unit) {
         }
         LucidSection("配置资源") {
             LucidRow("本地备份与恢复", symbol = LucidSymbol.Folder, onClick = { navigate("backup") })
-            LucidRow("资源提供器", symbol = LucidSymbol.Folder, onClick = { navigate("providers") })
+            LucidRow("外部资源", symbol = LucidSymbol.Folder, onClick = { navigate("providers") })
             LucidRow("Geo 数据", symbol = LucidSymbol.Dns, onClick = { navigate("geodata") })
             LucidRow("加密配置密钥", symbol = LucidSymbol.Shield, onClick = { navigate("keys") })
         }
@@ -399,7 +245,7 @@ fun MoreScreen(navigate: (String) -> Unit) {
                 tint = Color(0xFF34C759),
                 onClick = { navigate("help") },
             )
-            LucidRow("关于 Lee’s Clash", symbol = LucidSymbol.Home, onClick = { navigate("about") })
+            LucidRow("关于 Lee's Clash", symbol = LucidSymbol.Home, onClick = { navigate("about") })
         }
     }
 }

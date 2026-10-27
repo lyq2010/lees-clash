@@ -36,7 +36,7 @@ fun UpdateScreen(back: () -> Unit) {
             }
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-            LucidSection("Lee’s Clash", footer = message) {
+            LucidSection("Lee's Clash", footer = message) {
                 LucidRow("当前版本", value = BuildConfig.VERSION_NAME)
                 LucidRow("主通道", value = "腾讯 COS")
                 LucidRow("备用通道", value = "Cloudflare R2")

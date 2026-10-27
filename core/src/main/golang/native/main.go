@@ -13,6 +13,7 @@ import (
 
 	"lees/native/config"
 	"lees/native/delegate"
+	"lees/native/preview"
 	"lees/native/tunnel"
 
 	"github.com/metacubex/mihomo/log"
@@ -48,6 +49,7 @@ func reset() {
 func forceGc() {
 	go func() {
 		log.Infoln("[APP] request force GC")
+		preview.ClearCache()
 
 		runtime.GC()
 		debug.FreeOSMemory()

@@ -70,13 +70,16 @@ fun Context.verifyApk(): Boolean {
 
         val regexNativeLibrary = Regex("lib/(\\S+)/libclash.so")
         val availableAbi = Build.SUPPORTED_ABIS.toSet()
-        val apkAbi = sources
-            .asSequence()
-            .filter { File(it).exists() }
-            .flatMap { ZipFile(it).entries().asSequence() }
-            .mapNotNull { regexNativeLibrary.matchEntire(it.name) }
-            .mapNotNull { it.groups[1]?.value }
-            .toSet()
+        val apkAbi = mutableSetOf<String>()
+        for (source in sources.filter { File(it).exists() }) {
+            ZipFile(source).use { archive ->
+                val entries = archive.entries()
+                while (entries.hasMoreElements()) {
+                    regexNativeLibrary.matchEntire(entries.nextElement().name)
+                        ?.groups?.get(1)?.value?.let { apkAbi.add(it) }
+                }
+            }
+        }
 
         availableAbi.intersect(apkAbi).isNotEmpty()
     } catch (e: Exception) {

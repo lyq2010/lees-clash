@@ -33,7 +33,7 @@ class LayoutVerificationTest {
             "profiles" to "配置", "import" to "导入配置",
             "profile/${fixture.uuid}" to "编辑配置", "files/${fixture.uuid}" to "配置与资源文件",
             "groups" to "代理策略", "nodes/Local-Test" to "Local-Test",
-            "providers" to "资源提供器", "connections" to "实时连接",
+            "providers" to "外部资源", "connections" to "实时连接",
             "connection/missing-layout-fixture" to "连接详情", "rules" to "代理规则",
             "dns" to "DNS 查询", "stats" to "实时统计", "logs" to "运行日志",
             "network" to "VPN 与网络", "apps" to "分应用代理", "settings" to "应用设置",

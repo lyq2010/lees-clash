@@ -53,6 +53,26 @@ class ClientRepository(val context: Context) {
 
     suspend fun health(group: String) = withClash { healthCheck(group) }
 
+    suspend fun smartMode(group: String, mode: String = ""): String = groupSmart(group, mode).mode
+
+    suspend fun groupSmart(group: String, mode: String = ""): SmartGroupState = withClash {
+        val result = queryDiagnostics("smartMode", buildJsonObject {
+            put("id", group)
+            if (mode.isNotEmpty()) put("mode", mode)
+        }.toString())
+        val value = DiagnosticJson.format.parseToJsonElement(result).jsonObject
+        SmartGroupState(value.getValue("mode").jsonPrimitive.content,
+            value["supported"]?.jsonPrimitive?.content == "true")
+    }
+
+    suspend fun smartAll(mode: String = ""): SmartSummary = withClash {
+        val result = queryDiagnostics("smartAll", buildJsonObject {
+            if (mode.isNotEmpty()) put("mode", mode)
+        }.toString())
+        val value = DiagnosticJson.format.parseToJsonElement(result).jsonObject
+        SmartSummary(value.getValue("total").jsonPrimitive.int, value.getValue("enabled").jsonPrimitive.int)
+    }
+
     suspend fun providers() = withClash { queryProviders().toList() }
 
     suspend fun geoAssets(): List<GeoAsset> = withClash {

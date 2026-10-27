@@ -12,6 +12,9 @@ plugins {
 }
 
 android { buildFeatures { compose = true } }
+// Let ART map and share DEX pages instead of decompressing a private copy in
+// both the UI and service processes. Does not disable dexopt or JIT/AOT.
+android.packaging.dex.useLegacyPackaging = false
 android.defaultConfig.testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 android.sourceSets["androidTest"].assets.srcDir("../core/src/main/golang/native/config/testdata")
 
@@ -28,6 +31,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-svg:2.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.01.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

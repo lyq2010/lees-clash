@@ -20,6 +20,7 @@ import (
 	RC "github.com/metacubex/mihomo/rules/common"
 	"lees/native/common"
 	"lees/native/extension"
+	"lees/native/smart"
 	"lees/native/tunnel"
 )
 
@@ -78,7 +79,7 @@ func providerNodes(path string, mapping map[string]any) []map[string]any {
 	return content.Proxies
 }
 
-func readProfile(path, secretKey string) (*Profile, error) {
+func readProfileSource(path, secretKey string) (*config.RawConfig, error) {
 	data, err := os.ReadFile(filepath.Join(path, "config.yaml"))
 	if err != nil {
 		return nil, fmt.Errorf("无法读取所选配置")
@@ -102,6 +103,25 @@ func readProfile(path, secretKey string) (*Profile, error) {
 		return nil, fmt.Errorf("所选配置无法解析: %w", err)
 	}
 	if err := extension.Apply(raw, path); err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
+func readRawProfile(path, secretKey string) (*config.RawConfig, error) {
+	raw, err := readProfileSource(path, secretKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := smart.Apply(raw, path); err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
+func readProfile(path, secretKey string) (*Profile, error) {
+	raw, err := readRawProfile(path, secretKey)
+	if err != nil {
 		return nil, err
 	}
 	proxies := map[string]*tunnel.Proxy{}
@@ -134,36 +154,8 @@ func readProfile(path, secretKey string) (*Profile, error) {
 		add(group, true)
 		order = append(order, text(group, "name"))
 	}
-	result := &Profile{Groups: []Group{}, Rules: []Rule{}, Mode: raw.Mode.String()}
-	for _, entry := range []struct {
-		items        map[string]map[string]any
-		kind, prefix string
-	}{{raw.ProxyProvider, "Proxy", "proxies"}, {raw.RuleProvider, "Rule", "rules"}} {
-		for name, mapping := range entry.items {
-			vehicle := "File"
-			switch text(mapping, "type") {
-			case "http":
-				vehicle = "HTTP"
-			case "inline":
-				vehicle = "Inline"
-			}
-			relative := common.ResolveAsRoot(text(mapping, "path"))
-			if relative == "" && text(mapping, "url") != "" {
-				relative = entry.prefix + "/" + utils.MakeHash([]byte(text(mapping, "url"))).String()
-			}
-			var updated int64
-			if relative != "" {
-				if info, e := os.Stat(filepath.Join(path, "providers", relative)); e == nil {
-					updated = info.ModTime().UnixMilli()
-				}
-			}
-			result.Providers = append(result.Providers, tunnel.Provider{Name: name, Type: entry.kind, VehicleType: vehicle, UpdatedAt: updated})
-		}
-	}
-	sort.Slice(result.Providers, func(i, j int) bool { return result.Providers[i].Name < result.Providers[j].Name })
-	if result.Providers == nil {
-		result.Providers = []tunnel.Provider{}
-	}
+	result := profileMetadata(raw, path)
+	result.Groups, result.Rules = []Group{}, []Rule{}
 	groups := raw.ProxyGroup
 	if _, exists := proxies["GLOBAL"]; !exists {
 		groups = append(append([]map[string]any{}, groups...), map[string]any{"name": "GLOBAL", "type": "select", "proxies": order})
@@ -232,7 +224,7 @@ func readProfile(path, secretKey string) (*Profile, error) {
 		if text(group, "type") == "select" && len(items) > 0 {
 			now = items[0].Name
 		}
-		result.Groups = append(result.Groups, Group{text(group, "name"), &tunnel.ProxyGroup{Type: text(group, "type"), Now: now, Proxies: items}})
+		result.Groups = append(result.Groups, Group{text(group, "name"), &tunnel.ProxyGroup{Type: text(group, "type"), Now: now, Proxies: items, Icon: text(group, "icon")}})
 	}
 	for i, line := range raw.Rule {
 		kind, payload, target, _ := RC.ParseRulePayload(strings.TrimSpace(line), true)

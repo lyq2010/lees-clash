@@ -28,14 +28,13 @@ type NetworkProbe struct {
 	Risk    map[string]any `json:"risk,omitempty"`
 }
 
-func probe(request Request) (*NetworkProbe, error) {
+func probe(request Request, options ...mihomohttp.Option) (*NetworkProbe, error) {
 	target, err := url.Parse(request.URL)
 	if err != nil || len(request.URL) > 2048 || target.User != nil || target.Hostname() == "" || (target.Scheme != "https" && target.Scheme != "http") {
 		return nil, fmt.Errorf("请输入有效 HTTP 或 HTTPS 地址")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	options := []mihomohttp.Option{}
 	if request.Direct {
 		options = append(options, mihomohttp.WithSpecialProxy("DIRECT"))
 	}
@@ -62,6 +61,7 @@ func probe(request Request) (*NetworkProbe, error) {
 			ISP struct {
 				ISP string `json:"isp"`
 				ASN string `json:"asn"`
+				Org string `json:"org"`
 			} `json:"isp"`
 			Location struct {
 				Country string `json:"country"`
@@ -73,6 +73,9 @@ func probe(request Request) (*NetworkProbe, error) {
 			return nil, fmt.Errorf("IP 服务响应格式无效")
 		}
 		result.IP, result.Country, result.City, result.ISP, result.ASN = info.IP, info.Location.Country, info.Location.City, info.ISP.ISP, info.ISP.ASN
+		if result.ISP == "" {
+			result.ISP = info.ISP.Org
+		}
 		result.Risk = map[string]any{}
 		for _, key := range []string{"is_mobile", "is_vpn", "is_tor", "is_proxy", "is_datacenter"} {
 			if value, ok := info.Risk[key].(bool); ok {

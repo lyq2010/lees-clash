@@ -31,7 +31,7 @@ fun HomeHeader(
     val c = LocalLucidColors.current
     val name = profileName ?: "选择配置"
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

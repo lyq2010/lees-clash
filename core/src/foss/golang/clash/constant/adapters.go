@@ -55,6 +55,7 @@ const (
 	ZeroTier
 	EasyTier
 	GostRelay
+	Smart // Appended to preserve existing adapter values.
 )
 
 const (
@@ -178,6 +179,8 @@ type AdapterType int
 
 func (at AdapterType) String() string {
 	switch at {
+	case Smart:
+		return "Smart"
 	case Direct:
 		return "Direct"
 	case Reject:

@@ -15,7 +15,7 @@ func TestStoppedProfileGroupsProvidersAndLogicalRules(t *testing.T) {
 proxy-providers:
   Cached: {type: http, url: "https://invalid.example/nodes", path: cache.yaml}
 proxy-groups:
-  - {name: Manual, type: select, proxies: [Local-A], use: [Cached], exclude-filter: "Excluded"}
+  - {name: Manual, type: select, proxies: [Local-A], use: [Cached], exclude-filter: "Excluded", icon: "https://example.test/icon.svg"}
   - {name: Auto, type: url-test, proxies: [Local-A]}
 rules:
   - DOMAIN,example.test,Manual
@@ -38,6 +38,19 @@ rules:
 	}
 	if len(p.Groups) != 3 || len(p.Groups[0].Group.Proxies) != 2 || p.Groups[0].Group.Now != "Local-A" || p.Groups[1].Group.Now != "" {
 		t.Fatalf("invalid groups: %+v", p.Groups)
+	}
+	if p.Groups[0].Group.Icon != "https://example.test/icon.svg" || p.Groups[1].Group.Icon != "" {
+		t.Fatal("preview lost configured/default group icon")
+	}
+	ClearCache()
+	cache.Lock()
+	retained := cache.profile != nil || cache.path != "" || cache.stamp != ""
+	cache.Unlock()
+	if retained {
+		t.Fatal("preview retained after cache release")
+	}
+	if refreshed, err := Read(root, ""); err != nil || len(refreshed.Groups) != len(p.Groups) {
+		t.Fatalf("preview cannot reload after release: %v", err)
 	}
 	if len(p.Rules) != 4 || p.Rules[1].Proxy != "Manual" || p.Rules[2].Proxy != "DIRECT" || p.Rules[3].Payload != "" {
 		t.Fatalf("invalid rules: %+v", p.Rules)
@@ -88,5 +101,31 @@ func TestEncryptedPreviewUsesSelectedKeyAndInvalidatesCache(t *testing.T) {
 		if _, err := Read(root, secret); err != nil {
 			t.Fatal(err)
 		}
+		if _, err := ReadMetadata(root, wrong); err == nil {
+			t.Fatal("metadata bypassed the selected decryption key")
+		}
+	}
+}
+
+func TestMetadataDoesNotRetainFullPolicyPreview(t *testing.T) {
+	ClearCache()
+	defer ClearCache()
+	root := t.TempDir()
+	data := "mode: global\nproxy-providers:\n  External: {type: http, url: https://invalid.example/nodes, path: nodes.yaml}\n"
+	if err := os.WriteFile(filepath.Join(root, "config.yaml"), []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := ReadMetadata(root, "")
+	if err != nil || metadata.Mode != "global" || len(metadata.Providers) != 1 {
+		t.Fatalf("metadata: %+v %v", metadata, err)
+	}
+	if metadata.Groups != nil || metadata.Rules != nil {
+		t.Fatal("metadata loaded policy payload")
+	}
+	cache.Lock()
+	retained := cache.profile != nil
+	cache.Unlock()
+	if retained {
+		t.Fatal("metadata populated full preview cache")
 	}
 }

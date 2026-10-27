@@ -4,12 +4,11 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.leenban.clash.design.lucid.*
@@ -38,64 +37,25 @@ fun ProfilesScreen(
     Column(Modifier.fillMaxSize()) {
         LucidHeader("配置", back, "导入") { navigate("import") }
         LazyColumn(state = listState) {
-            item {
-                LucidSection("配置文件") {
-                    state.profiles
-                        .sortedByDescending { it.uuid == state.recentProfile }
-                        .forEach { profile ->
-                            LucidRow(
-                                profile.name,
-                                subtitle =
-                                    if (!profile.imported) "未完成导入"
-                                    else
-                                        when (profile.type) {
-                                            Profile.Type.Url -> "订阅配置"
-                                            Profile.Type.File -> "本地配置"
-                                            else -> "外部配置"
-                                        },
-                                value =
-                                    if (profile.uuid in state.updatingProfiles) "更新中"
-                                    else if (profile.active) "使用中"
-                                    else if (profile.uuid == state.recentProfile) "新添加" else "",
-                                selected = profile.active,
-                                trailing = {
-                                    if (profile.type != Profile.Type.File && profile.imported) {
-                                        val updating = profile.uuid in state.updatingProfiles
-                                        Box(
-                                            Modifier.size(48.dp)
-                                                .semantics {
-                                                    contentDescription = "更新${profile.name}"
-                                                }
-                                                .lucidClickable(enabled = !updating) {
-                                                    vm.updateProfile(profile)
-                                                },
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            LucidIcon(
-                                                LucidSymbol.Refresh,
-                                                LocalLucidColors.current.blue.copy(
-                                                    alpha = if (updating) .35f else 1f
-                                                ),
-                                                Modifier.size(22.dp),
-                                            )
-                                        }
-                                    }
-                                },
-                                onDetail = { navigate("profile/${profile.uuid}") },
-                                onClick = {
-                                    if (!profile.imported) vm.error("该配置尚未完成导入，请先编辑并保存")
-                                    else
-                                        vm.task(progress = "正在切换配置", success = "配置已切换") {
-                                            vm.repository.select(profile)
-                                            vm.changed()
-                                        }
-                                },
-                            )
-                        }
+            items(state.profiles.sortedByDescending { it.uuid == state.recentProfile }, key = { it.uuid.toString() }) { profile ->
+                LucidSection {
+                    ProfileListItem(profile,
+                        updating = profile.uuid in state.updatingProfiles,
+                        recent = profile.uuid == state.recentProfile,
+                        select = {
+                            if (!profile.imported) vm.error("请先完成导入")
+                            else if (!profile.active) vm.task(progress = "正在切换配置", success = "配置已切换") {
+                                vm.repository.select(profile)
+                                vm.changed()
+                            }
+                        },
+                        update = { vm.updateProfile(profile) },
+                        edit = { navigate("profile/${profile.uuid}") },
+                    )
                 }
             }
             if (state.profiles.isEmpty())
-                item { LucidEmpty("尚未添加配置", "点按右上角“导入”，从链接、文件或二维码添加 Clash YAML 配置。") }
+                item { LucidEmpty("尚未添加配置", "支持链接、文件与二维码。") }
         }
     }
 }

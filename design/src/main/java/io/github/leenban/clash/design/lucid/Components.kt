@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -110,7 +111,7 @@ fun LucidSection(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val c = LocalLucidColors.current
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 22.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 14.dp)) {
         if (title != null)
             Text(
                 title,
@@ -144,6 +145,7 @@ fun LucidRow(
     destructive: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
     onDetail: (() -> Unit)? = null,
+    leading: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val c = LocalLucidColors.current
@@ -166,7 +168,10 @@ fun LucidRow(
                 .padding(horizontal = 17.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (symbol != null) {
+            if (leading != null) {
+                leading()
+                Spacer(Modifier.width(14.dp))
+            } else if (symbol != null) {
                 Box(
                     Modifier.size(29.dp).clip(RoundedCornerShape(7.dp)).background(tint),
                     contentAlignment = Alignment.Center,
@@ -220,7 +225,7 @@ fun LucidRow(
                 }
         }
         Box(
-            Modifier.padding(start = if (symbol == null) 17.dp else 60.dp)
+            Modifier.padding(start = if (symbol == null && leading == null) 17.dp else 60.dp)
                 .fillMaxWidth()
                 .height(.5.dp)
                 .background(c.separator)
@@ -305,6 +310,7 @@ fun LucidToggle(
     checked: Boolean,
     enabled: Boolean = true,
     subtitle: String? = null,
+    symbol: LucidSymbol? = null,
     onToggle: (Boolean) -> Unit,
 ) {
     val c = LocalLucidColors.current
@@ -323,9 +329,15 @@ fun LucidToggle(
             .padding(horizontal = 17.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (symbol != null) {
+            Box(Modifier.size(29.dp).clip(RoundedCornerShape(7.dp)).background(c.blue), contentAlignment = Alignment.Center) {
+                LucidIcon(symbol, Color.White, Modifier.size(22.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+        }
         Column(Modifier.weight(1f)) {
-            Text(title, color = c.text.copy(alpha = if (enabled) 1f else .4f), fontSize = 16.sp)
-            if (subtitle != null) Text(subtitle, color = c.secondary, fontSize = 12.sp)
+            Text(title, color = c.text.copy(alpha = if (enabled) 1f else .4f), fontSize = 16.sp, lineHeight = 21.sp)
+            if (subtitle != null) Text(subtitle, color = c.secondary, fontSize = 12.sp, lineHeight = 17.sp)
         }
         Box(
             Modifier.width(49.dp)
@@ -350,12 +362,14 @@ fun LucidCard(
     title: String,
     symbol: LucidSymbol,
     colors: List<Color>,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
-        Modifier.padding(horizontal = 24.dp)
-            .padding(bottom = 20.dp)
+        modifier.padding(horizontal = 24.dp)
+            .padding(bottom = 12.dp)
             .fillMaxWidth()
+            .heightIn(min = (204 * LocalDensity.current.fontScale.coerceAtLeast(1f)).dp)
             .clip(RoundedCornerShape(15.dp))
             .background(Brush.linearGradient(colors))
             .drawBehind {
@@ -369,12 +383,13 @@ fun LucidCard(
             }
     ) {
         Row(
-            Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().heightIn(min = 38.dp).padding(horizontal = 15.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LucidIcon(symbol, Color.White, Modifier.size(23.dp))
-            Spacer(Modifier.width(9.dp))
-            Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            LucidIcon(symbol, Color.White.copy(alpha = .92f), Modifier.size(18.dp))
+            Spacer(Modifier.width(7.dp))
+            Text(title, Modifier.weight(1f), color = Color.White, fontSize = 20.sp, lineHeight = 24.sp,
+                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         content()
     }

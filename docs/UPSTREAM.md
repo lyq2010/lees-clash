@@ -13,6 +13,8 @@
 
 源码中的外部 Go import、依赖坐标、配置关键字与必要版权声明属于真实技术或许可信息，不作为用户可见的上游推广内容清理。
 
+本地内核新增独立实现的轻量 Smart 出站组及其解析 / 类型；组替换时显式取消其探测和释放统计，通用 LRU 增加计数 / 键快照用于有界清理。未切换 vernesong 分支或引入其 LightGBM / 统计数据库；原固定版本保持不变。功能与验证边界见 `SMART.md`。
+
 本地验证使用的 Go Windows 归档 SHA-256：`2483b14ce111fa89ac671cdb00073c5b19670198be1334f491a8f3fe36affeb0`。
 
 ## 本地 kaidl 运行库补丁
@@ -28,6 +30,8 @@ MIT 许可保存在同目录 LICENSE 并收入根 NOTICE。许可原文来源：
 QuickJS 固定官方 `2026-06-04` 源码，归档 SHA-256 为 `b376e839b322978313d929fd20663b11ba58b75df5a46c126dd19ea2fa70ad2a`，来源：https://bellard.org/quickjs/quickjs-2026-06-04.tar.xz 。仅纳入引擎及必要头文件，不纳入 CLI、标准库或系统接口；源文件未修改。MIT 原文保存在 `core/src/main/golang/native/script/quickjs/LICENSE` 并收入 NOTICE。自有 CGo 桥接使用临时运行时和显式内存 / 时间限制，不引入常驻 WebView。
 
 FlClash `7fd417fb9a9a277c6a9339a8ac87f907df7c25f7` 仅用于 Android 功能对照，未复制 Flutter 实现。刷新图标按用户提供的圆弧箭头参考手绘；未复制 Surge、morphicons 或 Lucide 资产，无新增这些图标库的许可依赖。
+
+2026-10-27 按用户要求，节点操作栏引入 Lucide 的 sliders-horizontal / list-ordered / arrow-down-a-z / gauge / map-pin / square 六枚图标，固定提交 `2ca268e74888d3506b3319fb8f94aaaaf70ceca9`，转换为 Android VectorDrawable；以上早期“未复制 Lucide”说明只适用于原有手绘图标。新增图标的 ISC / Feather 衍生 MIT 声明收入根 NOTICE，不引入运行库。
 
 ## 自有项目复用
 

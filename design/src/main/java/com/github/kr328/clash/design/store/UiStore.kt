@@ -8,6 +8,7 @@ import io.github.leenban.clash.common.store.asStoreProvider
 import io.github.leenban.clash.core.model.ProxySort
 import io.github.leenban.clash.design.model.AppInfoSort
 import io.github.leenban.clash.design.model.DarkMode
+import io.github.leenban.clash.design.model.PolicyLayout
 
 class UiStore(context: Context) {
     private val store = Store(
@@ -60,6 +61,14 @@ class UiStore(context: Context) {
     var proxyLastGroup: String by store.string(
         key = "proxy_last_group",
         defaultValue = ""
+    )
+
+    var groupLayout: PolicyLayout by store.enum(
+        key = "group_layout", defaultValue = PolicyLayout.List, values = PolicyLayout.values(),
+    )
+
+    var nodeLayout: PolicyLayout by store.enum(
+        key = "node_layout", defaultValue = PolicyLayout.List, values = PolicyLayout.values(),
     )
 
     var accessControlSort: AppInfoSort by store.enum(

@@ -75,5 +75,6 @@ object Bridge {
         Log.d("Home = $home")
 
         nativeInit(home, versionName, sdkVersion)
+        verifyRuntimeMemory(nativeDiagnostics("runtime", "{}"))
     }
 }

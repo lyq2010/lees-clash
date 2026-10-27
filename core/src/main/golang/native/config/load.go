@@ -3,10 +3,11 @@ package config
 import (
 	"os"
 	P "path"
-	"runtime"
+	"runtime/debug"
 	"strings"
 
 	"lees/native/app"
+	"lees/native/preview"
 
 	"github.com/metacubex/mihomo/common/yaml"
 	"github.com/metacubex/mihomo/config"
@@ -80,7 +81,8 @@ func Load(path string) error {
 
 	app.ApplySubtitlePattern(rawCfg.ClashForAndroid.UiSubtitlePattern)
 
-	runtime.GC()
+	preview.ClearCache()
+	debug.FreeOSMemory()
 
 	return nil
 }
