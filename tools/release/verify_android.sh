@@ -66,5 +66,5 @@ else
   release_apk="$(find app/build/outputs/apk/alpha/release -name '*.apk' -print -quit)"
   test "$(find app/build/outputs/apk/alpha/release -name '*.apk' | wc -l)" -eq 1
   adb -s "$serial" install "$release_apk"
-  python3 tools/release/release_smoke.py --serial "$serial"
+  python3 "${LEES_CLASH_RELEASE_SMOKE:-tools/release/release_smoke.py}" --serial "$serial"
 fi

@@ -9,23 +9,67 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 
+def bounds(node):
+    values = list(map(int, re.findall(r"-?\d+", node.get("bounds", ""))))
+    return values if len(values) == 4 else [0, 0, 0, 0]
+
+
+def tap_control(read_ui, run, text=None, description=None, wait=time.sleep):
+    for attempt in range(8):
+        document = read_ui()
+        nodes = list(document.iter("node"))
+        width = max((bounds(node)[2] for node in nodes), default=0)
+        height = max((bounds(node)[3] for node in nodes), default=0)
+        parents = {child: parent for parent in document.iter() for child in parent}
+        navigation_top = height
+        for node in nodes:
+            if node.get("text") not in ("首页", "工具", "更多") or bounds(node)[1] < height // 2:
+                continue
+            container = node
+            while container in parents and container.get("clickable") != "true":
+                container = parents[container]
+            top = bounds(container)[1]
+            if top >= height // 2:
+                navigation_top = min(navigation_top, top)
+        clipped = False
+        for node in nodes:
+            if not ((text is not None and node.get("text") == text)
+                    or (description is not None and node.get("content-desc") == description)):
+                continue
+            if node.get("enabled") == "false":
+                continue
+            left, top, right, bottom = bounds(node)
+            limit = height if text in ("首页", "工具", "更多") else navigation_top
+            if 0 <= left < right <= width and 0 <= top < bottom <= limit:
+                run("shell", "input", "tap", str((left + right) // 2), str((top + bottom) // 2))
+                return
+            clipped = True
+        if width and height and (clipped or attempt >= 2):
+            run("shell", "input", "swipe", str(width // 2), str(int(height * .72)),
+                str(width // 2), str(int(height * .38)), "300")
+        wait(.4)
+    raise ValueError("Release UI entry missing or obscured: " + str(text or description))
+
+
 def verify(adb, serial, package):
     def run(*arguments):
         return subprocess.check_output([adb, "-s", serial, *arguments], timeout=30)
 
     def ui():
-        run("shell", "uiautomator", "dump", "/sdcard/lees-clash-release-smoke.xml")
-        return ET.fromstring(run("shell", "cat", "/sdcard/lees-clash-release-smoke.xml"))
+        for _ in range(4):
+            try:
+                output = run("shell", "uiautomator", "dump", "--compressed", "/sdcard/lees-clash-release-smoke.xml")
+                if b"dumped" in output:
+                    document = ET.fromstring(run("shell", "cat", "/sdcard/lees-clash-release-smoke.xml"))
+                    if any(True for _ in document.iter("node")):
+                        return document
+            except (subprocess.CalledProcessError, ET.ParseError):
+                pass
+            time.sleep(.5)
+        raise ValueError("Android did not provide a fresh UI hierarchy")
 
     def tap(text=None, description=None):
-        for node in ui().iter("node"):
-            if ((text is not None and node.get("text") == text)
-                    or (description is not None and node.get("content-desc") == description)):
-                bounds = list(map(int, re.findall(r"\d+", node.get("bounds", ""))))
-                if len(bounds) == 4:
-                    run("shell", "input", "tap", str((bounds[0] + bounds[2]) // 2), str((bounds[1] + bounds[3]) // 2))
-                    return
-        raise ValueError("Release UI entry missing: " + str(text or description))
+        tap_control(ui, run, text, description)
 
     def require_text(text):
         for _ in range(5):
@@ -43,8 +87,7 @@ def verify(adb, serial, package):
     run("shell", "am", "start", "-W", "-n", component + "ExternalControlActivity", "-a", "android.intent.action.VIEW", "-d", "'" + link + "'")
     clicked = False
     for _ in range(30):
-        run("shell", "uiautomator", "dump", "/sdcard/lees-clash-release-smoke.xml")
-        document = ET.fromstring(run("shell", "cat", "/sdcard/lees-clash-release-smoke.xml"))
+        document = ui()
         for node in document.iter("node"):
             if node.get("text") == "完成" and node.get("enabled") == "true":
                 bounds = list(map(int, re.findall(r"\d+", node.get("bounds", ""))))

@@ -54,7 +54,9 @@ jobs:
         run: python3 -B tools/release/published.py
       - name: Keep current runner verification tools
         if: steps.existing.outputs.published != 'true'
-        run: cp tools/release/verify_android.sh "$RUNNER_TEMP/lees-clash-verify-android.sh"
+        run: |
+          cp tools/release/verify_android.sh "$RUNNER_TEMP/lees-clash-verify-android.sh"
+          cp tools/release/release_smoke.py "$RUNNER_TEMP/lees-clash-release-smoke.py"
       - name: Checkout release source
         if: steps.existing.outputs.published != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -116,7 +118,7 @@ jobs:
         if: steps.existing.outputs.published != 'true'
         run: |
           sudo chmod a+rw /dev/kvm
-          bash "$RUNNER_TEMP/lees-clash-verify-android.sh" release
+            LEES_CLASH_RELEASE_SMOKE="$RUNNER_TEMP/lees-clash-release-smoke.py" bash "$RUNNER_TEMP/lees-clash-verify-android.sh" release
       - name: Verify identity, independent signing and stage artifacts
         if: steps.existing.outputs.published != 'true'
         run: |
