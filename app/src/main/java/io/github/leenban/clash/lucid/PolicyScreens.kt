@@ -26,9 +26,7 @@ fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: () -> Uni
         else PolicyCollection(groups, layout, { it.name }, Modifier.weight(1f)) { entry, list ->
             val open = { navigate("nodes/${Uri.encode(entry.name)}") }
             val delay = if (state.running) entry.group.delay else 0
-            if (list) LucidRow(entry.name, subtitle = entry.group.type, value = entry.group.now,
-                trailing = { PolicyLatency(delay, Modifier.padding(start = 10.dp)) },
-                leading = { PolicyGroupIcon(entry.group.icon) }, onClick = open)
+            if (list) PolicyGroupRow(entry.name, entry.group.type, entry.group.now, entry.group.icon, delay, open)
             else PolicyTile(entry.name, entry.group.type, entry.group.now, icon = entry.group.icon, delay = delay, onClick = open)
         }
     }

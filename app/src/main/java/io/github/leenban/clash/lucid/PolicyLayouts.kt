@@ -86,15 +86,45 @@ internal fun PolicyTile(title: String, subtitle: String, detail: String, icon: S
         .then(if (onClick != null) Modifier.lucidClickable(role = if (selected == null) Role.Button else Role.RadioButton,
             scale = true, onClick = onClick) else Modifier)
         .padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Row(verticalAlignment = Alignment.Top) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) { PolicyGroupIcon(icon); Spacer(Modifier.width(9.dp)) }
             Text(title, Modifier.weight(1f), color = c.text, fontSize = 15.sp,
-                fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                fontWeight = FontWeight.Medium, maxLines = if (icon != null) 1 else 2, overflow = TextOverflow.Ellipsis)
             if (selected == true) LucidIcon(LucidSymbol.Check, c.blue, Modifier.size(18.dp))
         }
-        if (subtitle.isNotBlank()) Text(subtitle, color = c.secondary, fontSize = 12.sp, lineHeight = 17.sp)
-        if (detail.isNotBlank()) Text(detail, color = c.blue, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        PolicyLatency(delay)
+        if (subtitle.isNotBlank() || policyLatencyText(delay) != null) Row {
+            Text(subtitle, Modifier.weight(1f).alignByBaseline(), color = c.secondary, fontSize = 12.sp, lineHeight = 17.sp)
+            PolicyLatency(delay, Modifier.padding(start = 8.dp).alignByBaseline())
+        }
+        if (detail.isNotBlank()) Text(detail, color = c.blue, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+internal fun PolicyGroupRow(name: String, type: String, now: String, icon: String, delay: Int, onClick: () -> Unit) {
+    val c = LocalLucidColors.current
+    Column {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).lucidClickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 17.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            PolicyGroupIcon(icon)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(name, color = c.text, fontSize = 16.sp, lineHeight = 21.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(type, color = c.secondary, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1)
+                    if (now.isNotBlank()) {
+                        Text(" · ", color = c.secondary, fontSize = 12.sp, lineHeight = 17.sp)
+                        Text(now, Modifier.weight(1f, fill = false), color = c.blue, fontSize = 13.sp,
+                            lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            PolicyLatency(delay, Modifier.padding(start = 8.dp))
+            Spacer(Modifier.width(8.dp))
+            LucidIcon(LucidSymbol.Chevron, c.secondary.copy(alpha = .6f), Modifier.size(15.dp))
+        }
+        Box(Modifier.padding(start = 60.dp).fillMaxWidth().height(.5.dp).background(c.separator))
     }
 }
 
@@ -113,5 +143,5 @@ internal fun PolicyLatency(delay: Int, modifier: Modifier = Modifier) {
         delay < 600 -> androidx.compose.ui.graphics.Color(0xFFD99A00)
         else -> c.red
     }
-    Text(text, modifier, color = color, fontSize = 13.sp, maxLines = 1)
+    Text(text, modifier, color = color, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 1)
 }
