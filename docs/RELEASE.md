@@ -6,6 +6,10 @@
 
 版本1.0.2／versionCode5，范围为策略组及节点延迟、Smart站点选路与学习持久化和清理。26项Smart主测试及策略组／LRU race、JVM25项、Android原生配置恢复与界面专项已通过；正式签名通用包、R8运行验收与双镜像待发行工作流确认。完整长期真机稳定性不由单次发版验收代替。
 
+源码提交 `052194eb427016c34351406930a16d8e4172a05c`，`v1.0.2`已推送，按用户要求停止本地跟踪，由[现有发行工作流](https://github.com/lyq2010/lees-clash/actions/workflows/lees-clash-release.yml)继续验证和发布；不将“已触发”写成“已发布”。本轮未修改`.github/workflows`。本地发版辅助36项、JVM25项和Release Lint零错误／64警告／1提示通过。
+
+按用户授权立即将14项本地构建／测试／验收／截图／REA及专用模拟器产物移入废纸篓，逻辑大小5653228712字节，约5.26GiB；不是已释放的磁盘空间。自动审批拒绝清理可复用Go／Gradle／项目缓存，缩小范围后保留了这些缓存、CMake缓存、签名、工具链和依赖下载。源码及验证摘要保留，原始REA临时报告和反编译证据已清理。
+
 ## 本机工具与签名
 
 Mac使用`/Volumes/DISK/Applications/lees-clash-toolchain`，共享缓存 / 下载 / AVD / 临时状态放`/Volumes/DISK/DevCache/lees-clash`。未安装全局Homebrew包或修改系统JDK、Python包、shell启动文件；入口只设置当前命令环境。项目构建目录在工作区，发版收尾按授权清理。
