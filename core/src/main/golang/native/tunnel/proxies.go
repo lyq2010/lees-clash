@@ -35,6 +35,7 @@ type ProxyGroup struct {
 	Now     string   `json:"now"`
 	Proxies []*Proxy `json:"proxies"`
 	Icon    string   `json:"icon"`
+	Delay   int      `json:"delay"`
 }
 
 type sortableProxyList struct {
@@ -112,7 +113,14 @@ func QueryProxyGroup(name string, sortMode SortMode, uiSubtitlePattern *regexp2.
 		wrapper := &sortableProxyList{
 			list: proxies,
 			less: func(a, b *Proxy) bool {
-				return a.Delay < b.Delay
+				left, right := a.Delay, b.Delay
+				if left == 0 {
+					left = 65535
+				}
+				if right == 0 {
+					right = 65535
+				}
+				return left < right
 			},
 		}
 
@@ -126,6 +134,7 @@ func QueryProxyGroup(name string, sortMode SortMode, uiSubtitlePattern *regexp2.
 		Now:     g.Now(),
 		Proxies: proxies,
 		Icon:    g.Icon(),
+		Delay:   policyDelay(p),
 	}
 }
 
@@ -138,7 +147,46 @@ func QueryProxyGroupSummary(name string) *ProxyGroup {
 	if !ok {
 		return nil
 	}
-	return &ProxyGroup{Type: g.Type().String(), Now: g.Now(), Proxies: []*Proxy{}, Icon: g.Icon()}
+	return &ProxyGroup{Type: g.Type().String(), Now: g.Now(), Proxies: []*Proxy{}, Icon: g.Icon(), Delay: policyDelay(p)}
+}
+
+// Follow nested selections without probing or expanding the summary payload.
+func policyDelay(p C.Proxy) int {
+	seen := make(map[string]bool)
+	for p != nil {
+		if seen[p.Name()] {
+			return 0
+		}
+		seen[p.Name()] = true
+		g, isGroup := p.Adapter().(outboundgroup.ProxyGroup)
+		if !isGroup {
+			break
+		}
+		now := g.Now()
+		p = nil
+		for _, candidate := range g.Proxies() {
+			if candidate.Name() == now {
+				p = candidate
+				break
+			}
+		}
+	}
+	if p == nil {
+		return 0
+	}
+	var latest C.DelayHistory
+	for _, state := range p.ExtraDelayHistories() {
+		if n := len(state.History); n > 0 && state.History[n-1].Time.After(latest.Time) {
+			latest = state.History[n-1]
+		}
+	}
+	if latest.Time.IsZero() {
+		return 0 // No completed test; LastDelayForTestUrl also returns 65535 here.
+	}
+	if latest.Delay == 0 {
+		return 65535
+	}
+	return int(latest.Delay)
 }
 
 func PatchSelector(selector, name string) bool {
@@ -194,13 +242,6 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 				}
 			}
 		}
-		testURL := "https://www.gstatic.com/generate_204"
-		for k := range p.ExtraDelayHistories() {
-			if len(k) > 0 {
-				testURL = k
-				break
-			}
-		}
 		_, isGroup := p.Adapter().(outboundgroup.ProxyGroup)
 
 		result = append(result, &Proxy{
@@ -208,7 +249,7 @@ func convertProxies(proxies []C.Proxy, uiSubtitlePattern *regexp2.Regexp) []*Pro
 			Title:    strings.TrimSpace(title),
 			Subtitle: strings.TrimSpace(subtitle),
 			Type:     p.Type().String(),
-			Delay:    int(p.LastDelayForTestUrl(testURL)),
+			Delay:    policyDelay(p),
 			IsGroup:  isGroup,
 		})
 	}
@@ -235,13 +276,6 @@ func collectProviders(providers []provider.ProxyProvider, uiSubtitlePattern *reg
 				}
 			}
 
-			testURL := "https://www.gstatic.com/generate_204"
-			for k := range px.ExtraDelayHistories() {
-				if len(k) > 0 {
-					testURL = k
-					break
-				}
-			}
 			_, isGroup := px.Adapter().(outboundgroup.ProxyGroup)
 
 			result = append(result, &Proxy{
@@ -249,7 +283,7 @@ func collectProviders(providers []provider.ProxyProvider, uiSubtitlePattern *reg
 				Title:    strings.TrimSpace(title),
 				Subtitle: strings.TrimSpace(subtitle),
 				Type:     px.Type().String(),
-				Delay:    int(px.LastDelayForTestUrl(testURL)),
+				Delay:    policyDelay(px),
 				IsGroup:  isGroup,
 			})
 		}

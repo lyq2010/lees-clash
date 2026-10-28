@@ -492,6 +492,12 @@ class ClientViewModel(application: Application) :
         }
     }
 
+    fun clearSmartLearning() {
+        task(progress = "正在清除学习记录", success = "Smart 学习记录已清除") {
+            repository.diagnostic("smartClear")
+        }
+    }
+
     fun setMode(mode: TunnelState.Mode) {
         task(success = "已切换为${modeTitle(mode)}") {
             repository.setMode(mode)

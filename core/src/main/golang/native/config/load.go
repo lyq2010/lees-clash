@@ -1,6 +1,9 @@
 package config
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"io"
 	"os"
 	P "path"
 	"runtime/debug"
@@ -9,6 +12,7 @@ import (
 	"lees/native/app"
 	"lees/native/preview"
 
+	"github.com/metacubex/mihomo/adapter/outboundgroup"
 	"github.com/metacubex/mihomo/common/yaml"
 	"github.com/metacubex/mihomo/config"
 	"github.com/metacubex/mihomo/hub"
@@ -78,6 +82,9 @@ func Load(path string) error {
 
 	// like hub.Parse()
 	hub.ApplyConfig(cfg)
+	if err := restoreSmartLearning(path, cfg); err != nil {
+		log.Warnln("Restore Smart state: %v", err)
+	}
 
 	app.ApplySubtitlePattern(rawCfg.ClashForAndroid.UiSubtitlePattern)
 
@@ -94,4 +101,20 @@ func LoadDefault() {
 	}
 
 	hub.ApplyConfig(cfg)
+	_ = outboundgroup.ConfigureSmartPersistence("", "", nil)
+}
+
+func restoreSmartLearning(directory string, cfg *config.Config) error {
+	f, err := os.Open(P.Join(directory, "config.yaml"))
+	if err != nil {
+		_ = outboundgroup.ConfigureSmartPersistence("", "", nil)
+		return err
+	}
+	defer f.Close()
+	hash := sha256.New()
+	if _, err = io.Copy(hash, f); err != nil {
+		_ = outboundgroup.ConfigureSmartPersistence("", "", nil)
+		return err
+	}
+	return outboundgroup.ConfigureSmartPersistence(P.Join(directory, "smart-state.jsonl"), fmt.Sprintf("%x", hash.Sum(nil)), cfg.Proxies)
 }

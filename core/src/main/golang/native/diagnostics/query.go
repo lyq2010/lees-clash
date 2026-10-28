@@ -8,6 +8,7 @@ import (
 	"lees/native/geoasset"
 	"lees/native/preview"
 	LT "lees/native/tunnel"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -150,6 +151,14 @@ func Query(operation, payload string) string {
 	}
 	var result any
 	switch operation {
+	case "profileSmartClear":
+		if request.Path == "" {
+			return failure("请先选择配置")
+		}
+		if err := outboundgroup.ClearSmartState(filepath.Join(request.Path, "smart-state.jsonl")); err != nil {
+			return failure(err.Error())
+		}
+		result = map[string]bool{"success": true}
 	case "profileSmartAll":
 		value, err := preview.SmartAll(request.Path, request.SecretKey, request.Mode)
 		if err != nil {

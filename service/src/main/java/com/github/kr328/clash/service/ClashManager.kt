@@ -58,9 +58,11 @@ class ClashManager(private val context: Context) :
                     "clearDnsCache",
                     "smartMode",
                     "smartAll",
+                    "smartClear",
                 )
         )
         require(payload.length <= 8192)
+        if (operation == "smartClear") return profileDiagnostic("profileSmartClear")
         if (operation == "smartMode" || operation == "smartAll") {
             val request = DiagnosticJson.format.parseToJsonElement(payload).jsonObject
             val result = profileDiagnostic(if (operation == "smartAll") "profileSmartAll" else "profileSmartMode", request)

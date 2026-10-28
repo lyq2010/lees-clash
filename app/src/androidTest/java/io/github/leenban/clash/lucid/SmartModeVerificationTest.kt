@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.lifecycle.ViewModelProvider
 import io.github.leenban.clash.MainActivity
 import io.github.leenban.clash.util.startClashService
+import io.github.leenban.clash.service.util.importedDir
 import java.net.ServerSocket
 import kotlin.concurrent.thread
 import kotlinx.coroutines.*
@@ -62,7 +63,7 @@ class SmartModeVerificationTest {
             assertEquals(SmartSummary(2,1), repo.smartAll())
             compose.activityRule.scenario.onActivity { vm.openRoute("tools") }
             compose.waitUntil(15000) { vm.state.value.smartSummary == SmartSummary(2,1) }
-            compose.onNodeWithText("所有 URLTest 组").performClick()
+            compose.onNodeWithText("智能选路").performClick()
             compose.waitUntil(15000) { vm.state.value.smartSummary == SmartSummary(2,2) }
             assertEquals("select", repo.group("Manual").type.lowercase())
             assertEquals("fallback", repo.group("Failover").type.lowercase())
@@ -76,8 +77,23 @@ class SmartModeVerificationTest {
             repo.health("UI-Smart")
             val runtime = io.github.leenban.clash.core.model.DiagnosticJson.format
                 .parseToJsonElement(repo.diagnostic("runtime")).jsonObject
-            assertTrue("Manual UI tests must update Smart statistics through its probe budget",
-                runtime.getValue("smart").jsonObject.getValue("nodeRecords").jsonPrimitive.int > 0)
+            assertTrue("Manual tests must record failed node health",
+                repo.group("UI-Smart").proxies.all { it.delay == 65535 })
+            assertEquals("Test URLs must not create real-traffic observations", 0,
+                runtime.getValue("smart").jsonObject.getValue("nodeRecords").jsonPrimitive.int)
+            assertEquals(0, runtime.getValue("smart").jsonObject.getValue("probeWorkers").jsonPrimitive.int)
+            val learning = compose.activity.importedDir.resolve(profile.uuid.toString()).resolve("smart-state.jsonl")
+            learning.writeText("synthetic learning cache")
+            compose.activityRule.scenario.onActivity { vm.openRoute("tools") }
+            compose.waitUntil(15000) { !vm.state.value.pageLoading && !vm.state.value.busy }
+            compose.onNodeWithText("清除学习记录").performScrollTo().performClick()
+            compose.onNodeWithText("取消").performClick()
+            assertTrue("Cancelling must keep learning", learning.exists())
+            compose.onNodeWithText("清除学习记录").performClick()
+            compose.onNodeWithText("确认").performClick()
+            compose.waitUntil(15000) { !learning.exists() && !vm.state.value.busy }
+            assertEquals("smart", repo.smartMode("UI-Smart"))
+            assertEquals(SmartSummary(2,2), repo.smartAll())
             repo.smartMode("UI-Smart", "config")
             withTimeout(15000) { while (repo.group("UI-Smart").type.lowercase() !in listOf("url-test","urltest")) delay(100) }
             assertEquals("Backup", repo.group("Manual").now)

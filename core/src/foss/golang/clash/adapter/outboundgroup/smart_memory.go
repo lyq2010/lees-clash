@@ -26,12 +26,13 @@ type smartNode struct {
 }
 
 type smartSite struct {
-	good, bad string
-	badUntil  time.Time
+	good, bad             string
+	goodUpdated, badUntil int64
+	goodDelay             uint32 // Capped milliseconds; fits the original record on 32- and 64-bit builds.
 }
 
-// Shared across ALL groups. No timers, target-by-node matrices, disk history,
-// models or references to group/proxy objects are retained here.
+// Shared across ALL groups. No timers, target-by-node matrices, models or
+// references to group/proxy objects are retained here.
 var smartMemory = struct {
 	sync.Mutex
 	nodes *lru.LruCache[smartKey, smartNode]
@@ -56,14 +57,17 @@ func (s *Smart) observe(node, site string, udp bool, elapsed time.Duration, succ
 	}
 	now := time.Now()
 	smartMemory.Lock()
-	defer smartMemory.Unlock()
+	defer func() {
+		smartMemory.Unlock()
+		s.queueStateSave(now)
+	}()
 	if s.closed.Load() {
 		return
 	}
 	key := smartKey{s.id, node, udp}
 	state, _ := smartMemory.nodes.Get(key)
+	delay := math.Min(float64(elapsed.Milliseconds()), 10000)
 	if success {
-		delay := math.Min(float64(elapsed.Milliseconds()), 10000)
 		if state.updated.IsZero() {
 			state.delay = delay
 		} else {
@@ -87,17 +91,31 @@ func (s *Smart) observe(node, site string, udp bool, elapsed time.Duration, succ
 		key.name = site
 		entry, _ := smartMemory.sites.Get(key)
 		if success {
-			entry.good = node
-			if entry.bad == node {
-				entry.bad = ""
+			recent := entry.good != "" && entry.good != node && now.Unix()-entry.goodUpdated < 600
+			if recent && delay > float64(entry.goodDelay)*1.25+50 {
+				// A slow, late success must not replace a faster known route.
+				entry.bad, entry.badUntil = node, now.Add(10*time.Minute).Unix()
+			} else {
+				// Reuse the single demotion slot to keep a faster replacement
+				// stable even if the old node is fast for other destinations.
+				if recent && float64(entry.goodDelay) > delay*1.25+50 {
+					entry.bad, entry.badUntil = entry.good, now.Add(10*time.Minute).Unix()
+				}
+				entry.good, entry.goodDelay, entry.goodUpdated = node, uint32(delay), now.Unix()
+				if entry.bad == node {
+					entry.bad = ""
+				}
 			}
 		} else {
-			entry.bad, entry.badUntil = node, now.Add(10*time.Minute)
+			entry.bad, entry.badUntil = node, now.Add(10*time.Minute).Unix()
 			if entry.good == node {
 				entry.good = ""
 			}
 		}
 		smartMemory.sites.Set(key, entry)
+	}
+	if s.persist.Load() {
+		smartState.revision.Add(1)
 	}
 }
 

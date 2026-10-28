@@ -92,13 +92,13 @@ func (c *LruCache[K, V]) Len() int {
 	return len(c.cache)
 }
 
-// Keys returns a snapshot for bounded owner-scoped cleanup.
+// Keys returns a newest-first snapshot for bounded cleanup and cache snapshots.
 func (c *LruCache[K, V]) Keys() []K {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	keys := make([]K, 0, len(c.cache))
-	for key := range c.cache {
-		keys = append(keys, key)
+	for element := c.lru.Back(); element != nil; element = element.Prev() {
+		keys = append(keys, element.Value.key)
 	}
 	return keys
 }

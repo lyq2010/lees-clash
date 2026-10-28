@@ -34,10 +34,10 @@ internal fun SmartGroupToggle(checked: Boolean, enabled: Boolean, toggle: () -> 
 }
 
 @Composable
-internal fun SmartToolsSection(state: ClientState, toggle: (Boolean) -> Unit) {
+internal fun SmartToolsSection(state: ClientState, toggle: (Boolean) -> Unit, clear: (() -> Unit)? = null) {
     val summary = state.smartSummary
     LucidSection("Smart") {
-        LucidToggle("所有 URLTest 组", summary?.allEnabled == true,
+        LucidToggle("智能选路", summary?.allEnabled == true,
             symbol = LucidSymbol.Mode,
             enabled = !state.busy && summary != null && summary.total > 0,
             subtitle = when {
@@ -46,5 +46,7 @@ internal fun SmartToolsSection(state: ClientState, toggle: (Boolean) -> Unit) {
                 summary.total == 0 -> "当前配置没有 URLTest 组"
                 else -> "当前配置 · ${summary.enabled}/${summary.total} 组已启用"
             }, onToggle = toggle)
+        LucidRow("清除学习记录", subtitle = "清除当前配置的节点评分与站点记忆",
+            symbol = LucidSymbol.Refresh, onClick = if (state.active != null && !state.busy) clear else null)
     }
 }

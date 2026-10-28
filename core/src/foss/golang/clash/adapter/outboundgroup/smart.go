@@ -31,6 +31,7 @@ type Smart struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	closed   atomic.Bool
+	persist  atomic.Bool
 	mu       sync.Mutex
 	last     string
 	probeAt  time.Time
@@ -106,6 +107,7 @@ func (s *Smart) candidates(proxies []C.Proxy, site string, udp bool) [3]C.Proxy 
 	var result [3]C.Proxy
 	scores := [3]float64{math.Inf(1), math.Inf(1), math.Inf(1)}
 	now := time.Now()
+	nowUnix := now.Unix()
 	smartMemory.Lock()
 	defer smartMemory.Unlock()
 	entry, _ := smartMemory.sites.Get(smartKey{s.id, site, udp})
@@ -115,9 +117,10 @@ func (s *Smart) candidates(proxies []C.Proxy, site string, udp bool) [3]C.Proxy 
 		if !smartEligible(p, udp) {
 			continue
 		}
+		name := p.Name()
 		duplicate := false
 		for _, previous := range result {
-			if previous != nil && previous.Name() == p.Name() {
+			if previous != nil && previous.Name() == name {
 				duplicate = true
 				break
 			}
@@ -128,8 +131,11 @@ func (s *Smart) candidates(proxies []C.Proxy, site string, udp bool) [3]C.Proxy 
 		base := float64(p.LastDelayForTestUrl(s.url))
 		if base == 0 || base >= 65535 {
 			base = 500
+			if !p.AliveForTestUrl(s.url) {
+				base = 10000
+			}
 		}
-		node, ok := smartMemory.nodes.Get(smartKey{s.id, p.Name(), udp})
+		node, ok := smartMemory.nodes.Get(smartKey{s.id, name, udp})
 		score := base
 		if ok {
 			weight := math.Exp(-now.Sub(node.updated).Seconds() / 600)
@@ -138,7 +144,11 @@ func (s *Smart) candidates(proxies []C.Proxy, site string, udp bool) [3]C.Proxy 
 				score += 100000
 			}
 		}
-		if entry.bad == p.Name() && now.Before(entry.badUntil) {
+		if entry.good == name && entry.goodUpdated != 0 {
+			weight := math.Exp(-float64(nowUnix-entry.goodUpdated) / 600)
+			score = math.Max(score, base+weight*(float64(entry.goodDelay)-base))
+		}
+		if entry.bad == name && nowUnix < entry.badUntil {
 			score += 10000
 		}
 		// Stable site-specific tie breaking spreads sites across similar nodes.
@@ -146,9 +156,9 @@ func (s *Smart) candidates(proxies []C.Proxy, site string, udp bool) [3]C.Proxy 
 		hash.SetSeed(s.seed)
 		hash.WriteString(site)
 		hash.WriteByte(0)
-		hash.WriteString(p.Name())
+		hash.WriteString(name)
 		score += float64(hash.Sum64() % 25)
-		if entry.good == p.Name() {
+		if entry.good == name {
 			preferred, preferredScore = p, score
 		}
 		for i := range result {
@@ -258,6 +268,12 @@ func (s *Smart) MarshalJSON() ([]byte, error) {
 func (s *Smart) Close() error {
 	s.closed.Store(true)
 	s.cancel()
+	smartMemory.Lock() // Wait for observations and their dirty markers before the final snapshot.
+	persist := s.persist.Swap(false)
+	smartMemory.Unlock()
+	if persist {
+		FlushSmartState()
+	}
 	s.clearMemory()
 	return nil
 }

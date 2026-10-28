@@ -148,14 +148,14 @@ class UiRefinementTest {
         var next: Boolean? = null
         compose.setContent { LucidTheme(true) {
             Column(Modifier.width(360.dp).background(LocalLucidColors.current.background)) {
-                SmartToolsSection(ClientState(active = profile, smartSummary = SmartSummary(2,2))) { next = it }
+                SmartToolsSection(ClientState(active = profile, smartSummary = SmartSummary(2,2)), toggle = { next = it })
                 LucidSection("网络诊断") { LucidRow("IP 与网络检查", symbol = LucidSymbol.Network, onClick = {}) }
             }
         } }
-        val smartLeft = compose.onNodeWithText("所有 URLTest 组", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left
+        val smartLeft = compose.onNodeWithText("智能选路", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left
         val otherLeft = compose.onNodeWithText("IP 与网络检查", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left
         assertEquals(otherLeft,smartLeft,1f)
-        compose.onNodeWithText("所有 URLTest 组").assertIsOn().performClick()
+        compose.onNodeWithText("智能选路").assertIsOn().performClick()
         assertEquals(false,next)
         save("smart-tools-unified")
     }

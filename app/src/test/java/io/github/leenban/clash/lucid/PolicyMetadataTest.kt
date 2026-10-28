@@ -7,14 +7,25 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PolicyMetadataTest {
+    @Test fun latencyHidesUntestedAndLabelsFailures() {
+        assertNull(policyLatencyText(0))
+        assertNull(policyLatencyText(-1))
+        for (delay in listOf(1, 299, 300, 599, 600, 65534))
+            assertEquals("$delay ms", policyLatencyText(delay))
+        assertEquals("超时", policyLatencyText(65535))
+    }
+
     @Test fun iconUrlAndLegacyGroupDefaults() {
         assertEquals("https://example.test/a.svg", remotePolicyIcon(" https://example.test/a.svg "))
         for (url in listOf("", "file:///private/key", "content://images/1", "https://user:pass@example.test/a", "garbage"))
             assertNull(remotePolicyIcon(url))
         val old = DiagnosticJson.format.decodeFromString(ProxyGroup.serializer(), """{"type":"select","now":"DIRECT","proxies":[]}""")
         assertEquals("", old.icon)
+        assertEquals(0, old.delay)
         val configured = DiagnosticJson.format.decodeFromString(ProxyGroup.serializer(), """{"type":"select","now":"DIRECT","proxies":[],"icon":"https://example.test/a.svg"}""")
         assertEquals("https://example.test/a.svg", configured.icon)
+        val measured = DiagnosticJson.format.decodeFromString(ProxyGroup.serializer(), """{"type":"select","now":"Node","proxies":[],"delay":180}""")
+        assertEquals(180, measured.delay)
     }
 
     @Test fun exitSubtitleKeepsIpWhenIspMissing() {

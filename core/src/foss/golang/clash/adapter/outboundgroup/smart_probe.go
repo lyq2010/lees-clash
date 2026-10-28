@@ -24,14 +24,20 @@ func (s *Smart) maybeProbe(proxies []C.Proxy) {
 	}
 	var batch [4]C.Proxy
 	n := 0
+	now := time.Now()
+	smartMemory.Lock()
 	for checked := 0; checked < len(proxies) && n < len(batch); checked++ {
 		p := proxies[s.cursor%len(proxies)]
 		s.cursor++
 		if smartEligible(p, false) {
+			if state, ok := smartMemory.nodes.Get(smartKey{s.id, p.Name(), false}); ok && state.fails == 0 && now.Sub(state.updated) < s.interval {
+				continue
+			}
 			batch[n], n = p, n+1
 		}
 	}
-	s.probeAt = time.Now()
+	smartMemory.Unlock()
+	s.probeAt = now
 	if n == 0 {
 		<-smartProbeSlots
 		return
@@ -43,11 +49,8 @@ func (s *Smart) maybeProbe(proxies []C.Proxy) {
 				return
 			}
 			ctx, cancel := context.WithTimeout(s.ctx, s.timeout)
-			delay, err := p.URLTest(ctx, s.url, s.expected)
+			_, _ = p.URLTest(ctx, s.url, s.expected)
 			cancel()
-			if s.ctx.Err() == nil {
-				s.observe(p.Name(), "", false, time.Duration(delay)*time.Millisecond, err == nil && p.AliveForTestUrl(s.url))
-			}
 		}
 	}()
 }
@@ -88,7 +91,8 @@ func (s *Smart) URLTest(ctx context.Context, _ string, expected utils.IntRanges[
 		// URLTest can return nil error for an unexpected HTTP status; the
 		// per-URL alive flag carries that verdict in the existing proxy API.
 		success := err == nil && p.AliveForTestUrl(s.url)
-		s.observe(p.Name(), "", false, time.Duration(delay)*time.Millisecond, success)
+		// URLTest already updates health and fallback latency; a reachable test
+		// site must not clear real-traffic failure backoff.
 		if success {
 			result[p.Name()] = delay
 		}

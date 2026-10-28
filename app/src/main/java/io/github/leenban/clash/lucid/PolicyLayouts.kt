@@ -76,7 +76,7 @@ internal fun <T> PolicyCollection(items: List<T>, layout: PolicyLayout, key: (T)
 
 @Composable
 internal fun PolicyTile(title: String, subtitle: String, detail: String, icon: String? = null,
-    selected: Boolean? = null, onClick: (() -> Unit)?) {
+    selected: Boolean? = null, delay: Int = 0, onClick: (() -> Unit)?) {
     val c = LocalLucidColors.current
     val border by animateColorAsState(if (selected == true) c.blue.copy(alpha = .55f) else c.separator,
         tween(160), label = "policy-tile-border")
@@ -94,5 +94,24 @@ internal fun PolicyTile(title: String, subtitle: String, detail: String, icon: S
         }
         if (subtitle.isNotBlank()) Text(subtitle, color = c.secondary, fontSize = 12.sp, lineHeight = 17.sp)
         if (detail.isNotBlank()) Text(detail, color = c.blue, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        PolicyLatency(delay)
     }
+}
+
+internal fun policyLatencyText(delay: Int): String? = when {
+    delay <= 0 -> null
+    delay >= 65535 -> "超时"
+    else -> "$delay ms"
+}
+
+@Composable
+internal fun PolicyLatency(delay: Int, modifier: Modifier = Modifier) {
+    val text = policyLatencyText(delay) ?: return
+    val c = LocalLucidColors.current
+    val color = when {
+        delay < 300 -> c.green
+        delay < 600 -> androidx.compose.ui.graphics.Color(0xFFD99A00)
+        else -> c.red
+    }
+    Text(text, modifier, color = color, fontSize = 13.sp, maxLines = 1)
 }

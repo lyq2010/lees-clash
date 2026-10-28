@@ -355,3 +355,47 @@ func TestSmartManualProbeHonorsExpectedStatus(t *testing.T) {
 	_, err = s.URLTest(context.Background(), "", nil)
 	require.NoError(t, err)
 }
+
+func TestSmartProbesSkipRecentTrafficAndPreserveItsBackoff(t *testing.T) {
+	s, nodes := smartFixture(t, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) }))
+	defer server.Close()
+	s.url = server.URL
+	for _, node := range nodes {
+		node := node
+		node.dial = func(ctx context.Context) (C.Conn, error) {
+			conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", server.Listener.Addr().String())
+			if err != nil {
+				return nil, err
+			}
+			return outbound.NewConn(conn, node), nil
+		}
+	}
+	s.observe("Node-0", "example.com", false, 20*time.Millisecond, true)
+	s.observe("Node-1", "example.com", false, 0, false)
+	key := smartKey{s.id, "Node-1", false}
+	before, _ := smartMemory.nodes.Get(key)
+	s.probeAt = time.Time{}
+	s.maybeProbe(s.Proxies())
+	require.Eventually(t, func() bool { return nodes[1].calls.Load() == 1 && len(smartProbeSlots) == 0 }, time.Second, time.Millisecond)
+	require.Zero(t, nodes[0].calls.Load(), "recent real success needs no extra automatic request")
+	after, _ := smartMemory.nodes.Get(key)
+	require.Equal(t, before, after, "a successful test URL must not erase business failure backoff")
+
+	_, err := s.URLTest(context.Background(), "", nil)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, nodes[0].calls.Load(), "manual tests still cover recent healthy nodes")
+	require.EqualValues(t, 2, nodes[1].calls.Load())
+	after, _ = smartMemory.nodes.Get(key)
+	require.Equal(t, before, after)
+
+	healthyKey := smartKey{s.id, "Node-0", false}
+	state, _ := smartMemory.nodes.Get(healthyKey)
+	state.updated = time.Now().Add(-2 * s.interval)
+	smartMemory.nodes.Set(healthyKey, state)
+	s.probeAt = time.Time{}
+	s.maybeProbe(s.Proxies())
+	require.Eventually(t, func() bool {
+		return nodes[0].calls.Load() == 2 && nodes[1].calls.Load() == 3 && len(smartProbeSlots) == 0
+	}, time.Second, time.Millisecond)
+}

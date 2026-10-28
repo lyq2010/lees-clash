@@ -163,7 +163,11 @@ fun ToolsScreen(state: ClientState, vm: ClientViewModel, navigate: (String) -> U
             fontSize = 34.sp,
             fontWeight = FontWeight.Bold,
         )
-        SmartToolsSection(state, vm::setAllSmart)
+        SmartToolsSection(state, vm::setAllSmart, clear = {
+            confirm("清除当前配置的 Smart 学习记录？内存记录和本地快照将清除，智能选路开关设置保留。") {
+                vm.clearSmartLearning()
+            }
+        })
         LucidSection("网络诊断") {
             LucidRow("IP 与网络检查", symbol = LucidSymbol.Network, onClick = { navigate("network-check") })
             LucidRow(

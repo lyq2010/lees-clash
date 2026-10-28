@@ -25,9 +25,11 @@ fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: () -> Uni
         if (groups.isEmpty()) LucidEmpty("没有匹配的策略组")
         else PolicyCollection(groups, layout, { it.name }, Modifier.weight(1f)) { entry, list ->
             val open = { navigate("nodes/${Uri.encode(entry.name)}") }
+            val delay = if (state.running) entry.group.delay else 0
             if (list) LucidRow(entry.name, subtitle = entry.group.type, value = entry.group.now,
+                trailing = { PolicyLatency(delay, Modifier.padding(start = 10.dp)) },
                 leading = { PolicyGroupIcon(entry.group.icon) }, onClick = open)
-            else PolicyTile(entry.name, entry.group.type, entry.group.now, icon = entry.group.icon, onClick = open)
+            else PolicyTile(entry.name, entry.group.type, entry.group.now, icon = entry.group.icon, delay = delay, onClick = open)
         }
     }
 }
@@ -61,19 +63,15 @@ fun NodesScreen(name: String, state: ClientState, vm: ClientViewModel, back: () 
             })
         if (nodes.isEmpty()) LucidEmpty("没有匹配的节点")
         else PolicyCollection(nodes, layout, { it.name }, Modifier.weight(1f)) { proxy, list ->
-            val detail = when {
-                !state.running -> "未运行"
-                proxy.delay <= 0 -> "未测试"
-                proxy.delay >= 65535 -> "超时"
-                else -> "${proxy.delay} ms"
-            }
+            val delay = if (state.running) proxy.delay else 0
             val subtitle = listOfNotNull(proxy.subtitle.ifBlank { proxy.type },
                 if (proxy.isGroup) null else exits.subtitles[proxy.name]).joinToString("\n")
             val select = if (selectable) ({ vm.selectGroup(name, proxy.name) }) else null
             if (list) LucidRow(proxy.title.ifBlank { proxy.name }, subtitle = subtitle,
-                value = detail, selected = group?.now == proxy.name, onClick = select)
-            else PolicyTile(proxy.title.ifBlank { proxy.name }, subtitle, detail,
+                trailing = { PolicyLatency(delay, Modifier.padding(start = 10.dp)) },
                 selected = group?.now == proxy.name, onClick = select)
+            else PolicyTile(proxy.title.ifBlank { proxy.name }, subtitle, "",
+                selected = group?.now == proxy.name, delay = delay, onClick = select)
         }
     }
 }
