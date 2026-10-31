@@ -1,5 +1,6 @@
 package io.github.leenban.clash.lucid
 
+import io.github.leenban.clash.core.model.TunnelState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -27,5 +28,17 @@ class ClientFormattingTest {
         assertEquals("01:01:01", formatRunTime(3661000))
         assertEquals("1 天 01:01:01", formatRunTime(90061000))
         assertEquals("2 天 00:00:00", formatRunTime(172800000))
+    }
+
+    @Test
+    fun rateDisplayFormatsCompactDotMatrixDigitsAndModeCycle() {
+        assertEquals("0.00" to "KB/s", formatRateDisplay(0))
+        assertEquals("0.50" to "KB/s", formatRateDisplay(512))
+        assertEquals("5.30" to "KB/s", formatRateDisplay(5427))
+        assertEquals("42.5" to "KB/s", formatRateDisplay(43520))
+        assertEquals("5.30" to "MB/s", formatRateDisplay(5_557_453))
+        assertEquals(TunnelState.Mode.Global, nextMode(TunnelState.Mode.Rule))
+        assertEquals(TunnelState.Mode.Direct, nextMode(TunnelState.Mode.Global))
+        assertEquals(TunnelState.Mode.Rule, nextMode(TunnelState.Mode.Direct))
     }
 }

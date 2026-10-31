@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -38,9 +39,12 @@ fun ConnectionsScreen(
             color = LocalLucidColors.current.secondary,
             fontSize = 12.sp,
         )
-        LazyColumn(Modifier.weight(1f)) {
-            items(state.connections.items, key = { it.id }) { c ->
-                Box(Modifier.background(LocalLucidColors.current.surface)) {
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+            itemsIndexed(state.connections.items, key = { _, it -> it.id }) { index, c ->
+                Box(
+                    Modifier.padding(horizontal = 18.dp)
+                        .lucidLazyCardItem(index, state.connections.items.size)
+                ) {
                     LucidRow(
                         c.host.ifBlank { c.destination },
                         subtitle =
@@ -51,6 +55,7 @@ fun ConnectionsScreen(
             }
             if (state.connections.nextOffset >= 0)
                 item {
+                    Spacer(Modifier.height(10.dp))
                     LucidSection {
                         LucidRow(
                             if (state.busy) "加载中" else "加载更多",
@@ -148,9 +153,12 @@ fun RulesScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
             color = LocalLucidColors.current.secondary,
             fontSize = 12.sp,
         )
-        LazyColumn(Modifier.weight(1f)) {
-            items(state.rules.items, key = { it.index }) { rule ->
-                Box(Modifier.background(LocalLucidColors.current.surface)) {
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+            itemsIndexed(state.rules.items, key = { _, it -> it.index }) { index, rule ->
+                Box(
+                    Modifier.padding(horizontal = 18.dp)
+                        .lucidLazyCardItem(index, state.rules.items.size)
+                ) {
                     LucidRow(
                         rule.payload.ifBlank { rule.type },
                         subtitle = "#${rule.index+1} · ${rule.type}",
@@ -160,6 +168,7 @@ fun RulesScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
             }
             if (state.rules.nextOffset >= 0)
                 item {
+                    Spacer(Modifier.height(10.dp))
                     LucidSection {
                         LucidRow(
                             if (state.busy) "加载中" else "加载更多",
@@ -214,12 +223,38 @@ fun DnsScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
 
 @Composable
 fun StatsScreen(state: ClientState, back: () -> Unit) {
+    val palette = rememberHomeBentoPalette()
     Column(Modifier.fillMaxSize()) {
         LucidHeader("实时统计", back)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Box(Modifier.padding(horizontal = 18.dp, vertical = 6.dp)) {
+                HomeBentoCard(
+                    palette = palette,
+                    cornerRadius = 22.dp,
+                    glow = BentoGlow.TopStartBlue,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                        Text(
+                            if (state.running) "运行中 · ${formatRunTime(state.traffic.uptimeMs)}" else "服务未启动",
+                            color = palette.mutedText,
+                            fontSize = 12.sp,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        HomeRateSparkline(
+                            history = state.rateHistory,
+                            running = state.running,
+                            lineColor = palette.primaryText,
+                            accentColor = palette.blueAccent,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                        )
+                    }
+                }
+            }
             LucidSection("当前速率") {
                 LucidRow("上传", value = "${formatBytes(state.traffic.uploadRate)}/s")
                 LucidRow("下载", value = "${formatBytes(state.traffic.downloadRate)}/s")
+                LucidRow("活动连接", value = "${if (state.running) state.traffic.activeConnections else 0}")
             }
             LucidSection("本次运行累计") {
                 LucidRow("上传", value = formatBytes(state.traffic.uploadTotal))
@@ -260,16 +295,18 @@ fun LogsScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
             }
         }
         LucidSearch(query, { query = it }, "搜索日志内容或级别")
-        LazyColumn(Modifier.weight(1f).padding(horizontal = 20.dp)) {
-            items(logs) { log ->
-                Text(
-                    "${log.level.name.uppercase()}  ${java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.ROOT).format(log.time)}\n${log.message}",
-                    Modifier.padding(vertical = 9.dp),
-                    color = LocalLucidColors.current.text,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                )
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(18.dp, 6.dp, 18.dp, 16.dp)) {
+            itemsIndexed(logs) { index, log ->
+                Box(Modifier.fillMaxWidth().lucidLazyCardItem(index, logs.size)) {
+                    Text(
+                        "${log.level.name.uppercase()}  ${java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.ROOT).format(log.time)}\n${log.message}",
+                        Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        color = LocalLucidColors.current.text,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                    )
+                }
             }
             if (state.logs.isEmpty()) item { LucidEmpty("暂无日志", "打开此页后开始接收日志，最多保留最近 1000 条。") }
         }

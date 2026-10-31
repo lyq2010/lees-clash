@@ -3,8 +3,6 @@ package io.github.leenban.clash.lucid
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +15,10 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -118,30 +120,45 @@ fun ClientApp(
     }
     LucidTheme(dark) {
         val c = LocalLucidColors.current
+        val topRoutes = listOf("home", "groups", "tools", "more")
+        val showDock = stack.size == 1 && kind in topRoutes
         Box(
             Modifier.fillMaxSize()
                 .background(c.background)
+                .drawBehind {
+                    val r = size.width.coerceAtLeast(1f) * 0.95f
+                    drawRect(
+                        Brush.radialGradient(
+                            0.0f to c.ambientGlow,
+                            1.0f to Color.Transparent,
+                            center = Offset(size.width * 0.5f, 0f),
+                            radius = r,
+                        )
+                    )
+                }
                 .windowInsetsPadding(WindowInsets.safeDrawing)
         ) {
-            Column(Modifier.fillMaxSize().background(c.background)) {
+            Column(Modifier.fillMaxSize()) {
                 BoxWithConstraints(Modifier.weight(1f)) {
                     val wide = maxWidth >= 600.dp
                     Row(Modifier.fillMaxSize()) {
                         if (wide)
-                            Column(Modifier.width(210.dp).fillMaxHeight()) {
-                                Text(
-                                    "Lee's Clash",
-                                    Modifier.padding(20.dp),
-                                    color = c.text,
-                                    fontSize = 22.sp,
-                                )
-                                listOf("home" to "首页", "tools" to "工具", "more" to "更多").forEach {
-                                    (destination, title) ->
-                                    LucidRow(
-                                        title,
-                                        selected = stack.first() == destination,
-                                        onClick = { stack = listOf(destination) },
-                                    )
+                            Column(Modifier.width(228.dp).fillMaxHeight()) {
+                                LucidHeader("Lee's Clash")
+                                LucidSection {
+                                    listOf(
+                                            "home" to "首页",
+                                            "groups" to "策略",
+                                            "tools" to "工具",
+                                            "more" to "更多",
+                                        )
+                                        .forEach { (destination, title) ->
+                                            LucidRow(
+                                                title,
+                                                selected = stack.first() == destination,
+                                                onClick = { stack = listOf(destination) },
+                                            )
+                                        }
                                 }
                             }
                         LucidPageStack(stack, Modifier.weight(1f).fillMaxHeight()) { visibleRoute ->
@@ -155,9 +172,16 @@ fun ClientApp(
                                     }
                                 }
                                 when (visibleKind) {
-                                    "home" -> HomeScreen(state, navigate, toggle, vm::setMode) { state.active?.let(vm::updateProfile) }
+                                    "home" ->
+                                        HomeScreen(
+                                            state = state,
+                                            navigate = navigate,
+                                            toggle = toggle,
+                                            setMode = vm::setMode,
+                                            updateProfile = { state.active?.let(vm::updateProfile) },
+                                        )
                                     "tools" -> ToolsScreen(state, vm, navigate, confirm)
-                                    "more" -> MoreScreen(navigate)
+                                    "more" -> MoreScreen(navigate, state)
                                     "profiles" -> ProfilesScreen(state, vm, navigate, back)
                                     "import" ->
                                         ImportScreen(
@@ -183,7 +207,13 @@ fun ClientApp(
                                             confirm,
                                             editExternal,
                                         )
-                                    "groups" -> GroupsScreen(state, navigate, back, vm.repository.ui)
+                                    "groups" ->
+                                        GroupsScreen(
+                                            state = state,
+                                            navigate = navigate,
+                                            back = if (currentStack.size > 1) back else null,
+                                            ui = vm.repository.ui,
+                                        )
                                     "nodes" -> NodesScreen(argument, state, vm, back)
                                     "providers" -> ProvidersScreen(state, vm, back)
                                     "notifications" -> NotificationScreen(state, vm, back)
@@ -244,19 +274,18 @@ fun ClientApp(
                         }
                     }
                 }
-                if (kind in listOf("home", "tools", "more"))
+                if (showDock)
                     BoxWithConstraints {
-                        if (maxWidth < 600.dp) TabBar(kind) { stack = listOf(it) }
+                        if (maxWidth < 600.dp) FloatingDockBar(kind) { stack = listOf(it) }
                     }
             }
-            ClientFeedback(state, kind in listOf("home", "tools", "more")) { vm.clearError() }
+            ClientFeedback(state, showDock) { vm.clearError() }
         }
         confirmation?.let { (message, action) ->
             Dialog(onDismissRequest = { confirmation = null }) {
                 Column(
                     Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(c.surface)
+                        .lucidGlassSurface(22.dp)
                         .padding(top = 20.dp)
                 ) {
                     Text(
@@ -277,36 +306,6 @@ fun ClientApp(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun TabBar(selected: String, select: (String) -> Unit) {
-    val c = LocalLucidColors.current
-    Row(Modifier.fillMaxWidth().background(c.surface.copy(alpha = .96f))) {
-        listOf(
-                Triple("home", "首页", LucidSymbol.Home),
-                Triple("tools", "工具", LucidSymbol.Tools),
-                Triple("more", "更多", LucidSymbol.More),
-            )
-            .forEach { (route, title, symbol) ->
-                Column(
-                    Modifier.weight(1f)
-                        .heightIn(min = 58.dp)
-                        .lucidClickable { select(route) }
-                        .padding(vertical = 7.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    val tint by
-                        animateColorAsState(
-                            if (selected == route) c.blue else c.secondary,
-                            tween(160),
-                            label = "navigation-tab",
-                        )
-                    LucidIcon(symbol, tint, Modifier.size(25.dp))
-                    Text(title, Modifier.padding(top = 3.dp), color = tint, fontSize = 10.sp)
-                }
-            }
     }
 }
 

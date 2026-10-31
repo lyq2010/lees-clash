@@ -42,6 +42,8 @@ data class ClientState(
     val profiles: List<Profile> = emptyList(),
     val mode: TunnelState.Mode = TunnelState.Mode.Rule,
     val traffic: TrafficStats = TrafficStats(),
+    val rateHistory: List<Long> = emptyList(),
+    val primaryPolicy: PolicyGroup? = null,
     val groups: List<PolicyGroup> = emptyList(),
     val selectedGroup: ProxyGroup? = null,
     val smartMode: String = "config",
@@ -85,3 +87,40 @@ fun modeTitle(mode: TunnelState.Mode) =
         TunnelState.Mode.Global -> "全局代理"
         else -> "规则模式"
     }
+
+fun modeShortTitle(mode: TunnelState.Mode) =
+    when (mode) {
+        TunnelState.Mode.Direct -> "直连"
+        TunnelState.Mode.Global -> "全局"
+        else -> "规则"
+    }
+
+fun nextMode(mode: TunnelState.Mode) =
+    when (mode) {
+        TunnelState.Mode.Global -> TunnelState.Mode.Direct
+        TunnelState.Mode.Direct -> TunnelState.Mode.Rule
+        else -> TunnelState.Mode.Global
+    }
+
+fun formatRateDisplay(bytesPerSecond: Long): Pair<String, String> {
+    val safe = bytesPerSecond.coerceAtLeast(0L)
+    if (safe == 0L) return "0.00" to "KB/s"
+    if (safe < 1024L) {
+        val kb = (safe.toDouble() / 1024.0).coerceAtLeast(0.01)
+        return String.format(java.util.Locale.ROOT, "%.2f", kb) to "KB/s"
+    }
+    val units = listOf("KB/s", "MB/s", "GB/s", "TB/s")
+    var value = safe.toDouble() / 1024.0
+    var index = 0
+    while (value >= 1000.0 && index < units.lastIndex) {
+        value /= 1024.0
+        index++
+    }
+    val digits =
+        when {
+            value < 10.0 -> String.format(java.util.Locale.ROOT, "%.2f", value)
+            value < 100.0 -> String.format(java.util.Locale.ROOT, "%.1f", value)
+            else -> String.format(java.util.Locale.ROOT, "%.0f", value)
+        }
+    return digits to units[index]
+}

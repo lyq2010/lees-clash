@@ -57,9 +57,8 @@ fun ClientFeedback(state: ClientState, bottomTabs: Boolean = false, dismiss: () 
         ) {
             Row(
                 Modifier.fillMaxWidth()
-                    .shadow(8.dp, RoundedCornerShape(14.dp))
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(c.surface)
+                    .shadow(8.dp, RoundedCornerShape(16.dp))
+                    .lucidGlassSurface(16.dp)
                     .semantics { liveRegion = LiveRegionMode.Polite }
                     .testTag("feedback-alert")
                     .padding(start = 14.dp, end = 4.dp),
@@ -129,7 +128,7 @@ fun ClientFeedback(state: ClientState, bottomTabs: Boolean = false, dismiss: () 
     }
     details?.let { message ->
         Dialog(onDismissRequest = { details = null }) {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.surface)) {
+            Column(Modifier.fillMaxWidth().lucidGlassSurface(22.dp)) {
                 Text(
                     "操作未完成",
                     Modifier.padding(20.dp),

@@ -12,7 +12,7 @@ import io.github.leenban.clash.design.lucid.*
 import io.github.leenban.clash.design.store.UiStore
 
 @Composable
-fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: () -> Unit, ui: UiStore? = null) {
+fun GroupsScreen(state: ClientState, navigate: (String) -> Unit, back: (() -> Unit)? = null, ui: UiStore? = null) {
     val context = LocalContext.current
     val preferences = ui ?: remember(context) { UiStore(context.applicationContext) }
     var query by rememberSaveable { mutableStateOf("") }

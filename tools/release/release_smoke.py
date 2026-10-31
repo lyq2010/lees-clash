@@ -14,6 +14,9 @@ def bounds(node):
     return values if len(values) == 4 else [0, 0, 0, 0]
 
 
+DOCK_LABELS = ("首页", "策略", "工具", "更多")
+
+
 def tap_control(read_ui, run, text=None, description=None, wait=time.sleep):
     for attempt in range(8):
         document = read_ui()
@@ -23,15 +26,20 @@ def tap_control(read_ui, run, text=None, description=None, wait=time.sleep):
         parents = {child: parent for parent in document.iter() for child in parent}
         navigation_top = height
         for node in nodes:
-            if node.get("text") not in ("首页", "工具", "更多") or bounds(node)[1] < height // 2:
+            label = node.get("text") or node.get("content-desc")
+            if label not in DOCK_LABELS or bounds(node)[1] < height // 2:
                 continue
-            container = node
-            while container in parents and container.get("clickable") != "true":
-                container = parents[container]
-            top = bounds(container)[1]
+            if node.get("content-desc") in DOCK_LABELS:
+                top = bounds(node)[1]
+            else:
+                container = node
+                while container in parents and container.get("clickable") != "true":
+                    container = parents[container]
+                top = bounds(container)[1]
             if top >= height // 2:
                 navigation_top = min(navigation_top, top)
         clipped = False
+        is_dock_target = (text in DOCK_LABELS) or (description in DOCK_LABELS)
         for node in nodes:
             if not ((text is not None and node.get("text") == text)
                     or (description is not None and node.get("content-desc") == description)):
@@ -39,7 +47,7 @@ def tap_control(read_ui, run, text=None, description=None, wait=time.sleep):
             if node.get("enabled") == "false":
                 continue
             left, top, right, bottom = bounds(node)
-            limit = height if text in ("首页", "工具", "更多") else navigation_top
+            limit = height if is_dock_target else navigation_top
             if 0 <= left < right <= width and 0 <= top < bottom <= limit:
                 run("shell", "input", "tap", str((left + right) // 2), str((top + bottom) // 2))
                 return
@@ -145,12 +153,12 @@ def verify(adb, serial, package):
             raise ValueError("Signed Release / JNI / VPN proxy forwarding failed: " + last_failure)
         # Start a fresh UI task without stopping the running service.
         run("shell", "am", "start", "-W", "-f", "0x10008000", "-n", component + "MainActivity")
-        tap(text="网络")
+        tap(description="更多")
         tap(text="局域网信息与共享")
         require_text("HTTP 代理端口")
         require_text("17890")
         tap(description="返回")
-        tap(text="工具")
+        tap(description="工具")
         tap(text="内存详情")
         require_text("后台进程 PSS")
         require_text("Go 协程数")

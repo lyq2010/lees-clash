@@ -65,6 +65,24 @@ class ReleaseUiTests(unittest.TestCase):
         tap_control(lambda:document(),lambda *args:calls.append(args),text='工具',wait=lambda _:None)
         self.assertEqual(calls[-1],('shell','input','tap','175','700'))
 
+    def test_floating_icon_dock_scrolls_obscured_row_and_allows_dock_tap(self):
+        def icon_dock_frame(row_bounds):
+            return ET.fromstring(f'''<hierarchy><node bounds="[0,0][1080,1920]">
+              <node text="清理 DNS 缓存" enabled="true" bounds="{row_bounds}" />
+              <node content-desc="首页" clickable="false" selected="true" enabled="true" bounds="[72,1737][297,1881]" />
+              <node content-desc="策略" clickable="true" enabled="true" bounds="[309,1737][534,1881]" />
+              <node content-desc="工具" clickable="true" enabled="true" bounds="[546,1737][771,1881]" />
+              <node content-desc="更多" clickable="true" enabled="true" bounds="[783,1737][1008,1881]" />
+            </node></hierarchy>''')
+        frames = iter([icon_dock_frame('[54,1700][1026,1800]'), icon_dock_frame('[54,1100][1026,1200]')])
+        calls = []
+        tap_control(lambda: next(frames), lambda *args: calls.append(args), text='清理 DNS 缓存', wait=lambda _: None)
+        self.assertEqual(calls[0][:3], ('shell', 'input', 'swipe'))
+        self.assertEqual(calls[-1], ('shell', 'input', 'tap', '540', '1150'))
+        dock_calls = []
+        tap_control(lambda: icon_dock_frame('[54,1100][1026,1200]'), lambda *args: dock_calls.append(args), description='更多', wait=lambda _: None)
+        self.assertEqual(dock_calls, [('shell', 'input', 'tap', '895', '1809')])
+
     def test_disabled_control_is_never_tapped(self):
         calls = []
         with self.assertRaises(ValueError):

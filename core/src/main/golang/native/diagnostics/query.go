@@ -343,7 +343,12 @@ func Query(operation, payload string) string {
 	case "traffic":
 		up, down := statistic.DefaultManager.Now()
 		upTotal, downTotal := statistic.DefaultManager.Total()
-		result = map[string]int64{"uploadRate": up, "downloadRate": down, "uploadTotal": upTotal, "downloadTotal": downTotal}
+		var active int64
+		statistic.DefaultManager.Range(func(statistic.Tracker) bool {
+			active++
+			return true
+		})
+		result = map[string]int64{"uploadRate": up, "downloadRate": down, "uploadTotal": upTotal, "downloadTotal": downTotal, "activeConnections": active}
 	case "dns":
 		return queryDNS(request)
 	default:

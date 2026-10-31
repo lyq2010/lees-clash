@@ -65,20 +65,16 @@ class HomeEntryVerificationTest {
             compose.waitUntil(15000) { model.state.value.active?.name == "Verification home subscription" }
             compose.onNodeWithText("订阅概览").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("剩余 ${formatBytes(1048576 - 3072)} / ${formatBytes(1048576)}").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("更新订阅").performScrollTo()
+            compose.onNodeWithContentDescription("更新订阅").performScrollTo()
             screenshot("subscription")
             val before = runBlocking { repo.active()!!.updatedAt }
-            compose.onNodeWithText("更新订阅").performScrollTo().performClick()
+            compose.onNodeWithContentDescription("更新订阅").performScrollTo().performClick()
             compose.waitUntil(20000) { model.state.value.active!!.updatedAt > before && model.state.value.updatingProfiles.isEmpty() }
-            compose.onNodeWithText("配置详情").performScrollTo().performClick()
+            compose.onNodeWithContentDescription("配置详情").performScrollTo().performClick()
             compose.onNodeWithText("当前配置详情").assertIsDisplayed()
             compose.onNodeWithText("剩余").performScrollTo().assertIsDisplayed()
             compose.onNodeWithContentDescription("返回").performClick()
-            compose.onNodeWithText("网络").performClick()
-            compose.onNodeWithText("DNS 查询").assertDoesNotExist()
-            compose.onNodeWithText("实时连接").assertDoesNotExist()
-            compose.onNodeWithText("实时流量").assertDoesNotExist()
-            screenshot("network")
+            compose.onNodeWithContentDescription("工具").performClick()
             compose.onNodeWithText("IP 与网络检查").performScrollTo().performClick()
             compose.onNodeWithContentDescription("服务地址").performTextReplacement("http://127.0.0.1:18080/ip-info")
             compose.onNodeWithText("检查").performClick()
@@ -86,6 +82,8 @@ class HomeEntryVerificationTest {
             compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("203.0.113.5"))
             compose.onNodeWithText("203.0.113.5").assertIsDisplayed()
             compose.onNodeWithContentDescription("返回").performClick()
+            compose.onNodeWithContentDescription("更多").performClick()
+            screenshot("network")
             compose.onNodeWithText("按需网络").performScrollTo().performClick()
             compose.onNodeWithText("启用按需网络").performScrollTo().performClick()
             compose.onNodeWithText("保存").performClick()
@@ -139,9 +137,8 @@ class HomeEntryVerificationTest {
                 compose.waitUntil(10000) { model.state.value.active?.uuid == profile.uuid }
                 if (kind == "no-info") {
                     compose.onNodeWithText("订阅未提供总额度").performScrollTo().assertIsDisplayed()
-                    compose.onNodeWithText("到期时间未知").performScrollTo().assertIsDisplayed()
                 } else {
-                    compose.onNodeWithText("剩余 0 B / 1 B").performScrollTo().assertIsDisplayed()
+                    compose.onNode(hasText("剩余 0 B / 1 B", substring = true)).performScrollTo().assertIsDisplayed()
                     compose.onNode(hasText("已到期", substring = true)).performScrollTo().assertIsDisplayed()
                 }
             }
@@ -157,7 +154,7 @@ class HomeEntryVerificationTest {
             compose.onNodeWithText("当前配置").performScrollTo().assertIsDisplayed()
             compose.onNode(hasText("本地配置", substring = true)).performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("订阅未提供总额度").assertDoesNotExist()
-            compose.onNodeWithText("更新订阅").assertDoesNotExist()
+            compose.onNodeWithContentDescription("更新订阅").assertDoesNotExist()
         } finally {
             runBlocking { repo.restoreSelection(compose.activity, original) }
         }

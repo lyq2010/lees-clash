@@ -289,8 +289,24 @@ class ClientViewModel(application: Application) :
                             repository.diagnostic("traffic"),
                         )
                     else if (running) previous.traffic else TrafficStats()
+                val rateHistory =
+                    if (!running) emptyList()
+                    else if (route == "home") (previous.rateHistory + traffic.downloadRate).takeLast(20)
+                    else previous.rateHistory
+                val primaryPolicy =
+                    if (!running) null
+                    else if (route == "home")
+                        runCatching { repository.primaryGroupSummary() }.getOrElse { previous.primaryPolicy }
+                    else previous.primaryPolicy
                 mutable.update {
-                    it.copy(running = running, active = active, mode = mode, traffic = traffic)
+                    it.copy(
+                        running = running,
+                        active = active,
+                        mode = mode,
+                        traffic = traffic,
+                        rateHistory = rateHistory,
+                        primaryPolicy = primaryPolicy,
+                    )
                 }
                 if (
                     route.startsWith("connections") ||
@@ -472,6 +488,10 @@ class ClientViewModel(application: Application) :
     fun health(name: String) {
         task(progress = "正在测速", success = "测速完成") {
             repository.health(name)
+            if (route == "home" && mutable.value.running) {
+                val primary = runCatching { repository.primaryGroupSummary() }.getOrNull()
+                mutable.update { it.copy(primaryPolicy = primary) }
+            }
             refreshPage()
         }
     }

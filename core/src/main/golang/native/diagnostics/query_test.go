@@ -92,11 +92,12 @@ func TestTrafficKeepsFull64BitTotals(t *testing.T) {
 	var response struct {
 		Upload   int64 `json:"uploadTotal"`
 		Download int64 `json:"downloadTotal"`
+		Active   int64 `json:"activeConnections"`
 	}
 	if err := json.Unmarshal([]byte(Query("traffic", "{}")), &response); err != nil {
 		t.Fatal(err)
 	}
-	if response.Upload != upload || response.Download != download {
+	if response.Upload != upload || response.Download != download || response.Active < 0 {
 		t.Fatalf("traffic was truncated: %+v", response)
 	}
 }

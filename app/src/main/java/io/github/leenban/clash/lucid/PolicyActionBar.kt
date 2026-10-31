@@ -35,7 +35,7 @@ internal fun PolicyActionBar(mode: String, sort: ProxySort, showMode: Boolean,
         ProxySort.Title -> R.drawable.ic_lucide_arrow_down_a_z
         ProxySort.Delay -> R.drawable.ic_lucide_gauge
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 2.dp)) {
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (showMode) SmartGroupToggle(mode == "smart", modeEnabled, onMode)
@@ -63,11 +63,11 @@ private fun PolicyIconAction(label: String, @DrawableRes icon: Int, state: Strin
     val c = LocalLucidColors.current
     TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
         tooltip = { PlainTooltip { Text("$label · $state") } }, state = rememberTooltipState()) {
-        Row(Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp))
-                .background(if (active) c.blue.copy(alpha = .12f) else Color.Transparent)
+        Row(Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(14.dp))
+                .background(if (active) c.blue.copy(alpha = .14f) else c.surface)
                 .semantics { stateDescription = state }
                 .lucidClickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .padding(horizontal = 11.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(painterResource(icon), contentDescription = label, modifier = Modifier.size(20.dp),
                     tint = c.blue.copy(alpha = if (enabled) 1f else .35f))

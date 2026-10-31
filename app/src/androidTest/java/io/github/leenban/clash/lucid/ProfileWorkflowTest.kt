@@ -139,7 +139,7 @@ class ProfileWorkflowTest {
                 compose.onNodeWithText("策略已保存，下次启动生效").assertIsDisplayed()
                 compose.onNodeWithContentDescription("返回").performClick()
                 compose.onNodeWithContentDescription("返回").performClick()
-                compose.onNodeWithText("工具").performClick()
+                compose.onNodeWithContentDescription("工具").performClick()
                 compose.onNodeWithText("代理策略").assertDoesNotExist()
                 compose.onNodeWithText("配置管理").assertDoesNotExist()
                 compose.onNodeWithText("规则检索").performScrollTo().performClick()

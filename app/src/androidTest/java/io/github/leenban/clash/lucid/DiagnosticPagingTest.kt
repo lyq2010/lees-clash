@@ -75,7 +75,7 @@ class DiagnosticPagingTest {
                     assertEquals('H'.code, socket.getInputStream().read())
                 }
             }
-            compose.onNodeWithText("工具").performClick()
+            compose.onNodeWithContentDescription("工具").performClick()
             compose.onNodeWithText("实时连接").performClick()
             compose.onNode(hasSetTextAction()).performTextInput(fixtureHost)
             await("first page") {

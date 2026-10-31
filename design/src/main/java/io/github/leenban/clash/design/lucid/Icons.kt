@@ -5,10 +5,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 
@@ -57,23 +59,34 @@ fun LucidIcon(symbol: LucidSymbol, color: Color, modifier: Modifier = Modifier) 
                 LucidSymbol.Chevron -> path(9f, 5f, 16f, 12f, 9f, 19f)
                 LucidSymbol.Down -> path(5f, 9f, 12f, 16f, 19f, 9f)
                 LucidSymbol.Refresh -> {
-                    drawArc(
-                        color,
-                        45f,
-                        270f,
-                        false,
-                        Offset(4f, 4f),
-                        Size(16f, 16f),
-                        style = Stroke(1.6f, cap = StrokeCap.Round),
-                    )
-                    val arrow =
+                    val refreshStroke = Stroke(1.85f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                    val arcRect = Rect(4.4f, 4.4f, 19.6f, 19.6f)
+                    val upper =
                         Path().apply {
-                            moveTo(18.93f, 8f)
-                            lineTo(15.37f, 5.44f)
-                            lineTo(18.49f, 3.64f)
-                            close()
+                            arcTo(arcRect, 192f, 123f, true)
+                            lineTo(19.5f, 8.75f)
                         }
-                    drawPath(arrow, color)
+                    val upperHead =
+                        Path().apply {
+                            moveTo(19.5f, 4.55f)
+                            lineTo(19.5f, 8.75f)
+                            lineTo(15.3f, 8.75f)
+                        }
+                    val lower =
+                        Path().apply {
+                            arcTo(arcRect, 12f, 123f, true)
+                            lineTo(4.5f, 15.25f)
+                        }
+                    val lowerHead =
+                        Path().apply {
+                            moveTo(4.5f, 19.45f)
+                            lineTo(4.5f, 15.25f)
+                            lineTo(8.7f, 15.25f)
+                        }
+                    drawPath(upper, color, style = refreshStroke)
+                    drawPath(upperHead, color, style = refreshStroke)
+                    drawPath(lower, color, style = refreshStroke)
+                    drawPath(lowerHead, color, style = refreshStroke)
                 }
                 LucidSymbol.Edit -> {
                     path(4f, 16f, 15f, 5f, 19f, 9f, 8f, 20f, 4f, 20f, 4f, 16f)

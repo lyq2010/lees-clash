@@ -4,10 +4,9 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -152,6 +151,13 @@ private fun accessModeTitle(mode: AccessControlMode) =
 fun AppsScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var system by rememberSaveable { mutableStateOf(vm.repository.ui.accessControlSystemApp) }
+    val filteredApps =
+        remember(state.apps, system, query) {
+            state.apps.filter {
+                (system || !it.system) &&
+                    (it.label.contains(query, true) || it.packageName.contains(query, true))
+            }
+        }
     Column(Modifier.fillMaxSize()) {
         LucidHeader("分应用代理", back)
         LucidSearch(query, { query = it }, "搜索应用名称或包名")
@@ -177,17 +183,11 @@ fun AppsScreen(state: ClientState, vm: ClientViewModel, back: () -> Unit) {
                 vm.repository.ui.accessControlSystemApp = it
             }
         }
-        LazyColumn(Modifier.weight(1f)) {
-            items(
-                state.apps.filter {
-                    (system || !it.system) &&
-                        (it.label.contains(query, true) || it.packageName.contains(query, true))
-                },
-                key = { it.packageName },
-            ) { app ->
+        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+            itemsIndexed(filteredApps, key = { _, it -> it.packageName }) { index, app ->
                 Box(
-                    Modifier.padding(horizontal = 20.dp)
-                        .background(LocalLucidColors.current.surface)
+                    Modifier.padding(horizontal = 18.dp)
+                        .lucidLazyCardItem(index, filteredApps.size)
                 ) {
                     LucidToggle(app.label, app.selected, !state.running, app.packageName) {
                         vm.repository.selectApp(app.packageName, it)
@@ -355,15 +355,18 @@ fun HelpScreen(back: () -> Unit) {
 fun LicenseScreen(name: String, text: String, back: () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         LucidHeader(name, back)
-        LazyColumn(Modifier.padding(horizontal = 20.dp)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
             item {
-                Text(
-                    text,
-                    color = LocalLucidColors.current.text,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp,
-                    fontFamily = FontFamily.Monospace,
-                )
+                LucidSection {
+                    Text(
+                        text,
+                        Modifier.padding(16.dp),
+                        color = LocalLucidColors.current.text,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
             }
         }
     }

@@ -41,6 +41,7 @@ data class TrafficStats(
     val downloadRate: Long = 0,
     val uploadTotal: Long = 0,
     val downloadTotal: Long = 0,
+    val activeConnections: Int = 0,
 )
 
 @Serializable

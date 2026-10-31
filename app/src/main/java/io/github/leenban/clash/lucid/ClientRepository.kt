@@ -47,6 +47,12 @@ class ClientRepository(val context: Context) {
         queryProxyGroupNames(ui.proxyExcludeNotSelectable).map { PolicyGroup(it, queryProxyGroupSummary(it)) }
     }
 
+    suspend fun primaryGroupSummary() = withClash {
+        queryProxyGroupNames(ui.proxyExcludeNotSelectable).firstOrNull()?.let {
+            PolicyGroup(it, queryProxyGroupSummary(it))
+        }
+    }
+
     suspend fun select(group: String, proxy: String) {
         check(withClash { patchSelector(group, proxy) }) { "该策略组不支持手动选择" }
     }

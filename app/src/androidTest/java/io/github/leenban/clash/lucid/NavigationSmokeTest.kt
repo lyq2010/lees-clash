@@ -45,12 +45,14 @@ class NavigationSmokeTest {
         UiStore(compose.activity).darkMode = DarkMode.ForceLight
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("出站模式").assertIsDisplayed()
-        listOf("通用", "网络", "覆写").forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        listOf("首页", "策略", "工具", "更多").forEach {
+            compose.onNodeWithContentDescription(it).assertIsDisplayed()
+        }
         screenshot("home-light")
-        compose.onNodeWithText("工具").performClick()
+        compose.onNodeWithContentDescription("工具").performClick()
         compose.onNodeWithText("实时连接").assertIsDisplayed()
         screenshot("tools-light")
-        compose.onNodeWithText("更多").performClick()
+        compose.onNodeWithContentDescription("更多").performClick()
         compose.onNodeWithText("应用设置").performClick()
         compose.onNodeWithText("外观").assertIsDisplayed()
         screenshot("settings-light")
@@ -59,7 +61,7 @@ class NavigationSmokeTest {
         compose.onNodeWithText("使用 VPN 接管系统流量").assertIsDisplayed()
         screenshot("network-light")
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("配置覆写").performClick()
+        compose.onNodeWithText("配置覆写").performScrollTo().performClick()
         val model = ViewModelProvider(compose.activity)[ClientViewModel::class.java]
         compose.waitUntil(15000) {
             !model.state.value.pageLoading &&
@@ -68,7 +70,7 @@ class NavigationSmokeTest {
         compose.onNodeWithText("HTTP 端口").performScrollTo().assertIsDisplayed()
         screenshot("overrides-light")
         compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("首页").performClick()
+        compose.onNodeWithContentDescription("首页").performClick()
         UiStore(compose.activity).darkMode = DarkMode.ForceDark
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("出站模式").assertIsDisplayed()

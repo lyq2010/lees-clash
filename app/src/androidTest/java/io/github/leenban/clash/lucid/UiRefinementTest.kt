@@ -45,21 +45,22 @@ class UiRefinementTest {
                 else {
                     HomeSubscriptionCard(state.active, false, false, {}, {})
                     HomeRuntimeCard(state.running, state.traffic, {})
+                    HomeConnectionsCard(state.running, state.traffic, {})
                 }
             }
         } }
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
-        assertTrue(compose.onNodeWithTag("home-subscription-card").fetchSemanticsNode().boundsInRoot.height / density < 220)
+        assertTrue(compose.onNodeWithTag("home-subscription-card").fetchSemanticsNode().boundsInRoot.height / density < 120)
         assertTrue(compose.onNodeWithTag("home-runtime-card").fetchSemanticsNode().boundsInRoot.height / density < 220)
-        compose.onNodeWithText("更新订阅").assertHasClickAction()
-        compose.onNodeWithText("查看连接").assertHasClickAction()
+        compose.onNodeWithContentDescription("更新订阅").assertHasClickAction()
+        compose.onNodeWithContentDescription("查看连接").assertHasClickAction()
         save("compact-home")
         compose.runOnIdle { allCards = true }
         save("home-smaller-titles")
         compose.onNodeWithText("DNS").assertDoesNotExist()
-        val heights = listOf("home-mode-card", "home-subscription-card", "home-runtime-card")
+        val squareHeights = listOf("home-runtime-card", "home-connections-card")
             .map { compose.onNodeWithTag(it).fetchSemanticsNode().size.height.toFloat() }
-        heights.forEach { assertEquals(heights.first(), it, 1f) }
+        assertEquals(squareHeights.first(), squareHeights.last(), 1f)
     }
 
     @Test fun homeCardsGrowForLargeFontsWithoutHidingActions() {
@@ -73,12 +74,9 @@ class UiRefinementTest {
                 }
             }
         }
-        for (title in listOf("代理策略","更新订阅","查看连接")) {
-            compose.onNodeWithText(title).performScrollTo()
-            save("home-large-$title")
-            println("LARGE_HOME $title ${compose.onNodeWithText(title).fetchSemanticsNode().boundsInRoot}")
-            compose.onNodeWithText(title).assertIsDisplayed().assertHasClickAction()
-        }
+        compose.onNodeWithText("代理策略").performScrollTo().assertIsDisplayed().assertHasClickAction()
+        compose.onNodeWithContentDescription("更新订阅").performScrollTo().assertIsDisplayed().assertHasClickAction()
+        compose.onNodeWithContentDescription("查看连接").performScrollTo().assertIsDisplayed().assertHasClickAction()
         save("home-uniform-dark-large")
     }
 

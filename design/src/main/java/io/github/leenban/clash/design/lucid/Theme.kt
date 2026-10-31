@@ -16,19 +16,23 @@ data class LucidColors(
     val secondary: Color,
     val separator: Color,
     val field: Color,
-    val blue: Color = Color(0xFF007AFF),
-    val green: Color = Color(0xFF34C759),
-    val red: Color = Color(0xFFFF453A),
+    val blue: Color = Color(0xFF2B65F6),
+    val green: Color = Color(0xFF25B84B),
+    val red: Color = Color(0xFFE83E35),
+    val borderTop: Color = Color(0xFFD5DBE8),
+    val borderBottom: Color = Color(0xFFE2E7F2),
+    val ambientGlow: Color = Color(0xFFDABBD4).copy(alpha = 0.24f),
+    val dark: Boolean = false,
 )
 
 val LocalLucidColors = staticCompositionLocalOf {
     LucidColors(
-        Color(0xFFE9EDF2),
-        Color.White,
-        Color(0xFF17171A),
-        Color(0xFF86868D),
-        Color(0xFFE6E6EB),
-        Color(0xFFE9E9EE),
+        background = Color(0xFFECEFF5),
+        surface = Color.White,
+        text = Color(0xFF14161C),
+        secondary = Color(0xFF6B7180),
+        separator = Color(0xFFE3E7F0),
+        field = Color(0xFFE2E6F0),
     )
 }
 
@@ -37,13 +41,19 @@ fun LucidTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () ->
     val colors =
         if (dark)
             LucidColors(
-                Color(0xFF101216),
-                Color(0xFF1B1E24),
-                Color(0xFFF3F3F6),
-                Color(0xFF9D9DA4),
-                Color(0xFF30343C),
-                Color(0xFF252932),
-                Color(0xFF0A84FF),
+                background = Color(0xFF0A0A0E),
+                surface = Color(0xFF141419),
+                text = Color(0xFFF6F6F9),
+                secondary = Color(0xFF9898A6),
+                separator = Color.White.copy(alpha = 0.08f),
+                field = Color(0xFF1D1D25),
+                blue = Color(0xFF4F8BFF),
+                green = Color(0xFF3ADE68),
+                red = Color(0xFFFF5A52),
+                borderTop = Color.White.copy(alpha = 0.14f),
+                borderBottom = Color.White.copy(alpha = 0.05f),
+                ambientGlow = Color(0xFF3B1735).copy(alpha = 0.34f),
+                dark = true,
             )
         else LocalLucidColors.current
     val scheme =
