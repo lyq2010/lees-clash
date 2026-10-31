@@ -54,6 +54,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 -B tools/release/published.py
+      - name: Keep current runner verification tools
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          cp tools/release/verify_android.sh "$RUNNER_TEMP/lees-clash-verify-android.sh"
+          cp tools/release/release_smoke.py "$RUNNER_TEMP/lees-clash-release-smoke.py"
       - name: Checkout release source
         if: steps.existing.outputs.published != 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -78,7 +83,7 @@ jobs:
         if: steps.existing.outputs.published != 'true'
         run: |
           python3 -B tools/release/install_toolchain.py
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'ndk;29.0.14206865' 'cmake;3.22.1' 'system-images;android-35;google_apis;x86_64'
       - name: Restore reusable build cache
         id: build-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -126,7 +131,7 @@ jobs:
           test -s app/build/outputs/mapping/alphaRelease/mapping.txt
           grep -q '^# compiler: R8' app/build/outputs/mapping/alphaRelease/mapping.txt
           python3 -B tools/release/audit_apk.py app/build/outputs/apk/alpha/release/*.apk
-      - name: Preserve audited build for publication
+      - name: Preserve audited build before runtime verification
         if: steps.existing.outputs.published != 'true' && steps.signed-build.outputs.cache-hit != 'true'
         uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
@@ -134,6 +139,11 @@ jobs:
             app/build/outputs/apk/alpha/release
             app/build/outputs/mapping/alphaRelease
           key: ${{ steps.signed-build.outputs.cache-primary-key }}
+      - name: Verify signed R8 runtime
+        if: steps.existing.outputs.published != 'true'
+        run: |
+          sudo chmod a+rw /dev/kvm
+          LEES_CLASH_RELEASE_SMOKE="$RUNNER_TEMP/lees-clash-release-smoke.py" bash "$RUNNER_TEMP/lees-clash-verify-android.sh" release
       - name: Stage verified release assets
         if: steps.existing.outputs.published != 'true'
         run: python3 -B tools/release/stage.py "$TAG"
@@ -163,6 +173,19 @@ jobs:
           from pathlib import Path
           Path('signing.properties').unlink(missing_ok=True)
           (Path(os.environ['RUNNER_TEMP']) / 'lees-clash-release.p12').unlink(missing_ok=True)
+          PY
+      - name: Report bounded verification logs
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          folder = Path(os.environ['RUNNER_TEMP']) / 'clash-verification'
+          for path in sorted(folder.glob('*')):
+              if path.is_file() and path.suffix in ('.txt', '.log'):
+                  print(f'::group::{path.name}')
+                  print('\n'.join(path.read_text(errors='replace').splitlines()[-250:]))
+                  print('::endgroup::')
           PY
   mirrors:
     needs: release
