@@ -16,6 +16,7 @@ cleanup() {
   local status=$?
   if [[ "$status" != 0 ]]; then
     timeout 15 adb -s "$serial" logcat -d -b crash -v threadtime > "$RUNNER_TEMP/clash-verification/$mode-android-crash.log" 2>&1 || true
+    timeout 15 adb -s "$serial" logcat -d -t 400 -v threadtime > "$RUNNER_TEMP/clash-verification/$mode-android-logcat.log" 2>&1 || true
     timeout 15 adb -s "$serial" shell dumpsys activity exit-info io.github.leenban.clash > "$RUNNER_TEMP/clash-verification/$mode-process-exit.log" 2>&1 || true
     timeout 15 adb -s "$serial" shell dumpsys meminfo > "$RUNNER_TEMP/clash-verification/$mode-guest-memory.log" 2>&1 || true
     df -h > "$RUNNER_TEMP/clash-verification/$mode-host-disk.log" 2>&1 || true
@@ -40,6 +41,9 @@ boot() {
   for attempt in $(seq 1 150); do
     if [ "$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then
       adb -s "$serial" shell input keyevent 82
+      # System ANR dialogs block UI automation; keep the guest responsive on slow software rendering.
+      adb -s "$serial" shell settings put global hide_error_dialogs 1
+      for scale in window_animation_scale transition_animation_scale animator_duration_scale; do adb -s "$serial" shell settings put global "$scale" 0; done
       adb -s "$serial" logcat -c || true
       free -m > "$RUNNER_TEMP/clash-verification/$mode-host-memory-before.log"
       return

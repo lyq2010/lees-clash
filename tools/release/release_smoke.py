@@ -61,7 +61,7 @@ def tap_control(read_ui, run, text=None, description=None, wait=time.sleep):
 
 def wait_for_labels(read_ui, ready, failure, wait=time.sleep):
     labels = set()
-    for _ in range(30):
+    for _ in range(60):
         labels = {node.get("text") for node in read_ui().iter("node")}
         if ready(labels):
             return
