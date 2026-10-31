@@ -11,32 +11,42 @@ serial=emulator-5580
 if [[ "$mode" = release ]]; then serial=emulator-5582; fi
 python3 scripts/local-fixture.py > "$RUNNER_TEMP/clash-verification/fixture.log" 2>&1 &
 fixture_pid=$!
+emulator_pid=""
 cleanup() {
   local status=$?
   if [[ "$status" != 0 ]]; then
     timeout 15 adb -s "$serial" logcat -d -b crash -v threadtime > "$RUNNER_TEMP/clash-verification/$mode-android-crash.log" 2>&1 || true
     timeout 15 adb -s "$serial" shell dumpsys activity exit-info io.github.leenban.clash > "$RUNNER_TEMP/clash-verification/$mode-process-exit.log" 2>&1 || true
     timeout 15 adb -s "$serial" shell dumpsys meminfo > "$RUNNER_TEMP/clash-verification/$mode-guest-memory.log" 2>&1 || true
+    df -h > "$RUNNER_TEMP/clash-verification/$mode-host-disk.log" 2>&1 || true
     free -m > "$RUNNER_TEMP/clash-verification/$mode-host-memory.log" 2>&1 || true
     ps -eo pid,comm,rss --sort=-rss | head -15 > "$RUNNER_TEMP/clash-verification/$mode-host-processes.log" || true
   fi
   adb -s "$serial" emu kill >/dev/null 2>&1 || true
+  if [[ -n "$emulator_pid" ]]; then kill "$emulator_pid" >/dev/null 2>&1 || true; fi
   kill "$fixture_pid" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 boot() {
   local name="$1"
+  rm -rf -- .gradle core/.cxx core/build service/build design/build common/build hideapi/build
+  if [[ -n "${ANDROID_HOME:-}" ]]; then rm -rf -- "$ANDROID_HOME/ndk"; fi
   printf 'no\n' | avdmanager create avd -n "$name" -k 'system-images;android-35;google_apis;x86_64' -d pixel_2
   if [ ! -f "$ANDROID_AVD_HOME/$name.ini" ]; then
     printf 'avd.ini.encoding=UTF-8\npath=%s/%s.avd\ntarget=android-35\n' "$ANDROID_AVD_HOME" "$name" > "$ANDROID_AVD_HOME/$name.ini"
   fi
   emulator -avd "$name" -no-window -no-snapshot -no-audio -no-metrics -no-boot-anim -gpu swiftshader -memory 2048 -port "${serial#emulator-}" > "$RUNNER_TEMP/clash-verification/$name-emulator.log" 2>&1 &
+  emulator_pid=$!
   for attempt in $(seq 1 150); do
     if [ "$(adb -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; then
       adb -s "$serial" shell input keyevent 82
       adb -s "$serial" logcat -c || true
       free -m > "$RUNNER_TEMP/clash-verification/$mode-host-memory-before.log"
       return
+    fi
+    if ! kill -0 "$emulator_pid" 2>/dev/null; then
+      echo "Android emulator exited before boot completed" >&2
+      exit 1
     fi
     sleep 2
   done
@@ -62,6 +72,7 @@ if [[ "$mode" = debug ]]; then
   done
   test "$failed" -eq 0
 else
+  rm -rf -- app/build/intermediates app/build/tmp app/build/kotlin
   boot clash-release
   release_apk="$(find app/build/outputs/apk/alpha/release -name '*.apk' -print -quit)"
   test "$(find app/build/outputs/apk/alpha/release -name '*.apk' | wc -l)" -eq 1

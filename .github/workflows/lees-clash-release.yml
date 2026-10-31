@@ -71,7 +71,7 @@ jobs:
         if: steps.existing.outputs.published != 'true'
         run: |
           # These preinstalled tools are unused; reinstall only the locked Android components below.
-          sudo rm -rf -- /usr/share/dotnet /usr/local/share/powershell "$ANDROID_HOME/ndk" "$ANDROID_HOME/cmake"
+          sudo rm -rf -- /usr/share/dotnet /usr/local/share/powershell /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL /usr/local/share/boost "$ANDROID_HOME/ndk" "$ANDROID_HOME/cmake"
           df -h "$GITHUB_WORKSPACE"
           python3 -c 'import shutil; assert shutil.disk_usage(".").free >= 20 * 1024**3, "At least 20 GiB required before installing the locked SDK"'
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
