@@ -106,7 +106,7 @@ JUnit不保证方法顺序，必须单独执行准备方法并检查`OK (N tests
 1. 更新version.properties、CHANGELOG及交接 / 矩阵，完成本地验证；发布说明从CHANGELOG对应章节提取。
 2. 提交并推送main及`vMAJOR.MINOR.PATCH`标签，标签推送自动触发发行；手动指定已发布标签可重试镜像。流程先读取main的发行工具，校验私有仓和标签属于main历史，再判断是否已有完整不可变Release。
 3. 新发行检出标签源码，移除临时构建机不用的预装.NET / PowerShell及NDK / CMake，确认至少20GiB可用后安装锁定工具；本机工具链不受影响。仅用锁定的GitHub官方Actions。构建缓存支持前缀恢复，并在测试失败时保存可复用依赖及Go编译缓存，避免每次失败重新冷编译。
-4. 执行Go宿主测试、恢复正式签名，完成JVM单测、完整Lint及通用Release构建，再在全新模拟器实际运行原签名R8包。发行流程不额外构建Debug应用和测试APK；完整23类Debug设备 / UI截图回归独立在`lees-clash-verify.yml`，代码PR或手动指定分支 / 标签运行。CMake依赖绑定到当前变体，通用Release的四ABI各编译一次，不再附带Meta编译。
+4. 执行Go宿主测试、恢复正式签名，完成JVM单测、完整Lint及通用Release构建，再审核R8映射与APK资产。云端不做模拟器运行验收：私有仓默认Runner只有2 vCPU，全新`google_apis`镜像首启时GMS与软件渲染争抢CPU，曾连续以System UI与MainActivity的ANR阻断发版；R8运行期导入、VPN转发、LAN端口、内存与DNS清理改在本机专用AVD用`release_smoke.py`覆盖。发行流程不额外构建Debug应用和测试APK；完整23类Debug设备 / UI截图回归独立在`lees-clash-verify.yml`，代码PR或手动指定分支 / 标签运行。CMake依赖绑定到当前变体，通用Release的四ABI各编译一次，不再附带Meta编译。
 5. 审核R8映射、包名 / 版本、原证书、四ABI真实ELF CPU、64位LOAD至少16KB、APK zipalign及原生库压缩。只暂存并发布`lees-clash-<版本>.apk`、SHA256SUMS和latest-lees-clash.json，共三项资产；不生成或发布分架构APK。已有完整Release不覆盖。
 6. 发布后COS / R2并行同步，镜像工具从main读取，便于修复后重试且保持发行标签不变。**发版验收禁止下载COS对象正文，包括APK、校验表和更新源**：上传启用`EnableMD5=True`，由服务端核对Content-MD5；之后只用HEAD核对大小、上传响应ETag和SHA-256 / versionCode元数据。ETag仅与上传响应比较，不当作MD5。R2继续完整回读校验SHA-256。COS已有更新源缺版本元数据或同版本摘要冲突时停止，不下载正文。
 7. 新镜像验证完成后，按精确Clash文件名和旧版本清理旧包；首次发行无旧版可删。R2省略分页元数据时，用官方`start_after`逐页探测至明确空页；列表不前进 / 分页非法、哈希或feed检查失败时不清理，不碰其他项目 / 嵌套对象 / GitHub历史Release。随后按授权直接删除本地临时、构建 / 测试 / 截图 / 验收和Android产物，保留签名、工具链与可复用依赖下载。
@@ -151,9 +151,9 @@ Cloudflare分页结构见[官方List Objects](https://developers.cloudflare.com/
 
 构建耗时修复：原先CMake任务名前缀不含flavor，却同时附加Alpha / Meta依赖，导致Alpha Release执行8个Go编译、单ABI Debug执行2个。实际Gradle任务图现分别为4个 / 1个，Meta仍可独立构建；Go先于CMake执行。分页 / 生命周期测试使用独立夹具域名，并主动加入额外连接验证隔离，避免设备背景连接数影响断言。
 
-对照上游后，将完整Debug回归从发行串行链移至独立验证Workflow，避免每次发版额外编译Debug和测试APK、启动两次模拟器，并让页面截图布局问题阻断正式包交付。发行继续执行Go / JVM单测、完整Lint、正式签名R8实际导入 / VPN转发 / LAN端口 / 内存 / DNS清理和资产审核；独立Debug回归仍保留全部23类及失败汇总。没有复制上游打印签名属性、浮动依赖升级或多架构APK发布方式。
+对照上游后，将完整Debug回归从发行串行链移至独立验证Workflow，避免每次发版额外编译Debug和测试APK、启动两次模拟器，并让页面截图布局问题阻断正式包交付。发行只保留Go / JVM单测、完整Lint、正式签名构建与资产审核；R8包的导入 / VPN转发 / LAN端口 / 内存 / DNS运行期验收在本机专用AVD执行，独立Debug回归仍保留全部23类及失败汇总。没有复制上游打印签名属性、浮动依赖升级或多架构APK发布方式。
 
-云端运行固定Ubuntu24.04，编译限制为2个worker / 2GiB堆，Kotlin编译在Gradle进程内完成，避免遗留编译守护进程。模拟器失败前先保存Android崩溃缓冲、进程退出原因、客体 / 宿主内存和进程RSS，再关闭设备；诊断在运行日志中输出。验证脚本从main保留到RUNNER_TEMP后再检出发行标签，修复云端工具时可复用同一源码标签和已保存缓存。
+云端运行固定Ubuntu24.04，编译限制为2个worker / 2GiB堆，Kotlin编译在Gradle进程内完成，避免遗留编译守护进程。发行验收脚本不再复制到RUNNER_TEMP，标签重试复用同一源码标签和已保存的签名构建缓存。
 
 缓存入口统一在main：标签事件只分发main的发行任务，发行源码仍检出指定标签。标签分支产生的缓存不能直接供main重试恢复；统一执行作用域后，各版本可恢复默认分支缓存。缓存key包含run_id / run_attempt，每次保存新快照，避免一次失败只缓存Debug后，后续完整构建无法更新同名旧缓存。
 
